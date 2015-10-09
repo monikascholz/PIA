@@ -106,9 +106,9 @@ class Window():
         self.boxBG = tk.IntVar()
         
         self.boxShow.set(1)
-        self.boxBG.set(20)
-        self.boxNeuron.set(5)
-        self.signalThreshold.set(90)
+        self.boxBG.set(300)
+        self.boxNeuron.set(50)
+        self.signalThreshold.set(97)
         
         self.data = []
         self.oldData = []
@@ -372,7 +372,7 @@ class Window():
         #=====================================================================#   
     def selectImageFolder(self):
              #--------- Get directory from the user ---------         
-        self.imageFolder.set(tfd.askdirectory(parent=root, initialdir='/home/monika/Copy/workspace spyder/Fluorescence/Data', title='Select image folder'))
+        self.imageFolder.set(tfd.askdirectory(parent=root, initialdir='/home/monika/Copy/workspace spyder/GCamp/HSN GCaMP', title='Select image folder'))
         
              #--------- Get all images in folder and sort them --------- 
         tmp = np.array(os.listdir(self.imageFolder.get()))
@@ -477,12 +477,14 @@ class Window():
             else:
                 self.data = np.array([tmpT,tmpEntries,tmpEntries,tmpEntries,tmpEntries])
                 self.oldData = self.data
+        self.status[1] = True
             
         #=====================================================================#
         # An action requires the data to be redrawn
         #=====================================================================#      
             
     def drawData(self):
+        # draw raw data and background
         plt.figure('Data')
         self.ax['Data'].cla()
         self.vLine = []
@@ -493,6 +495,16 @@ class Window():
         plt.xlim(min(self.data[0]),max(self.data[0]))
         self.canvas['Data'].draw()
         self.drawDataLine()
+        # draw background subtracted data - (F-Bg)
+        plt.figure('Flow')
+        self.ax['Flow'].cla()
+        bg = self.data[1]+1
+        fl = self.data[2]
+        ratio = fl/bg -1
+        plt.plot(self.data[0],ratio,c=UCgreen[4],lw=2)
+        n = 5
+        plt.plot(self.data[0][:-n+1],piaImage.moving_average(ratio, n),c=UCgreen[2],lw=2)
+        self.canvas['Flow'].draw()
         return
 
         #=====================================================================#
@@ -530,9 +542,10 @@ class Window():
         #=====================================================================#      
     def onPressMain(self,event):
         if self.newAutoRun:
-            if len(self.ROI) > 0:
-                for item in self.ROI:
-                    item.remove()
+#            print self.ROI
+#            if len(self.ROI) > 0:
+#                for item in self.ROI:
+#                    item.remove()
             self.ROI = []
             self.ROILocationData = [event.xdata,event.ydata]
             
@@ -541,9 +554,9 @@ class Window():
             self.data[4][self.currentIndex.get()] = event.ydata
             self.drawRect()
             self.getFluoresence()
-            self.drawData()   
+            self.drawData()
 
-        if self.nextImgOnClick.get() == 1:
+        if self.nextImgOnClick.get() == 1 and not self.newAutoRun:
             self.currentIndex.set(self.currentIndex.get() + 1 + self.skipFrames.get())
                  #--------- Increment current index  --------- 
             if self.currentIndex.get() >= self.numOfImages-1:
@@ -565,9 +578,8 @@ class Window():
             self.ROI.append(self.ax['Main'].plot(np.round(self.ROILocationData[0]), np.round(self.ROILocationData[1]), 'ro'))
             self.canvas['Main'].draw()
             self.AutoRunActive = True   
-
-            self.newAutoRun = False
             self.updateAutoRun()
+            self.newAutoRun = False
         return
         
         #=====================================================================#
@@ -591,7 +603,7 @@ class Window():
             for item in self.ROI:
                 item.remove()
         self.ROI = []
-        self.ROI.append(self.ax['Main'].plot(np.round(self.ROILocationData[0]), np.round(self.ROILocationData[1]), 'ro'))
+        self.ROI.append(self.ax['Main'].plot(np.round(self.ROILocationData[0]), np.round(self.ROILocationData[1]), 'o', color=UCorange[0]))
         #add_patch(Rectangle((np.round(self.flowRegionData[0][0]), np.round(self.flowRegionData[0][1])), self.flowRegionData[1][0]-self.flowRegionData[0][0], self.flowRegionData[1][1]-self.flowRegionData[0][1], edgecolor=UCgreen[4],facecolor='none',alpha=1,lw=2)))
         self.canvas['Main'].draw()        
         return
@@ -600,52 +612,52 @@ class Window():
         # Update the autotracker results (or create if not run before)
         #=====================================================================#          
     def updateAutoRun(self):
-        for i in range(0,self.numOfImages):
-            if i ==0:
+        for index, i in enumerate(np.arange(self.currentIndex.get(),self.numOfImages)):
+            if index ==0:
                 # read current image
                 _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
                 # update coordinates
-                xC, yC = self.ROILocationData
+                tmp_xC, tmp_yC = self.ROILocationData
                 # use same algoruthm as manual to get fluorescence
-                self.AutoFluorescenceDetector(_tmpImage, xC, yC, i)
+                self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
+                self.ax['Main'].plot(self.data[3][0], self.data[4][0], 'o', color= UCmain)
+                self.canvas['Main'].draw()    
             else:
                  # read current image
                 _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
                 # update coordinates
+                tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.2, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.2
                 
-                xC, yC = np.average(self.data[3][max(0,i-10):i]),  np.average(self.data[4][max(0,i-10):i])
+                #xC, yC = np.average(self.data[3][max(0,i-3):i]),  np.average(self.data[4][max(0,i-3):i])
                 # use same algoruthm as manual to get fluorescence
-                self.AutoFluorescenceDetector(_tmpImage, xC, yC, i)
-                  
-       
-        plt.figure('Flow')
-        self.ax['Flow'].cla()
-        
-        plt.plot(self.data[0],self.data[2],c=UCblue[2],lw=2)
-        plt.plot(self.data[0],self.data[1],c=UCgreen[4],lw=2)
-        plt.xlim(min(self.data[0]),max(self.data[0]))
-        self.canvas['Flow'].draw()
-        
+                self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
+                self.ax['Main'].plot(self.data[3][i], self.data[4][i], 'o', color= UCmain)
+                self.canvas['Main'].draw()    
+        self.drawData()
+        self.drawMain()
         return
         
     def AutoFluorescenceDetector(self, img, xC, yC, index):
         '''Fluorescence analyzer'''
         bgSize = int(np.round(self.boxBG.get()/2.0))
-        neuronSize = self.boxNeuron.get()/2.0
+        neuronSize = int(np.round(self.boxNeuron.get()/2.0))
         threshold = self.signalThreshold.get()
         
-        x,y,Signal, BgLevel = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
+        xNew,yNew,Signal, BgLevel = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
         # show neuron box   
-
-        #self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(x - neuronSize), np.round(y-neuronSize)), 2*neuronSize, 2*neuronSize, edgecolor=UCorange[0],facecolor='none',alpha=1,lw=2)))
+        
+        #self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(xNew - neuronSize), np.round(yNew-neuronSize)), 2*neuronSize, 2*neuronSize, edgecolor=UCorange[0],facecolor='none',alpha=1,lw=2)))
         #self.canvas['Main'].draw()            
          # --- Update neuron info in data file ---
-        self.data[3][index] = x#xNewNeuron+xMin
-        self.data[4][index] = y#yNewNeuron+yMin
+        self.oldData[:,index] = self.data[:,index] 
+        self.data[3][index] = xNew#Neuron+xMin
+        self.data[4][index] = yNew#Neuron+yMin
         self.data[2][index] = Signal#newNeuronAverage
         self.data[1][index] = BgLevel#bgLevel
-        self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(x - neuronSize), np.round(y-neuronSize)), 2*neuronSize, 2*neuronSize, edgecolor=UCorange[0],facecolor='none',alpha=1,lw=2)))
-        self.canvas['Main'].draw()    
+        
+        #self.ax['Main'].plot(xNew, yNew, 'o', color= UCmain)
+        #self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(x - neuronSize), np.round(y-neuronSize)), 2*neuronSize, 2*neuronSize, edgecolor=UCorange[0],facecolor='none',alpha=1,lw=2)))
+        #self.canvas['Main'].draw()    
         
         return   
         
@@ -658,7 +670,7 @@ class Window():
         #=====================================================================#  
     def onPressData(self,event):
              #--------- Get new image index from click --------- 
-        if self.status[0] and self.status[1] or self.status[2]:
+        if self.status[0] and self.status[1]:
             if not event.inaxes:
                 self.startIndex.set(0)
                 self.currentIndex.set(0)    
@@ -699,7 +711,8 @@ class Window():
             for item in self.rect:
                 item.remove()
         self.rect = []
-        self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - self.boxBG.get()/2.0, np.round(self.data[4][self.currentIndex.get()]) - self.boxBG.get()/2.0), self.boxBG.get(), self.boxBG.get(), edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
+        size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
+        self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
         self.canvas['Main'].draw()
         return
         
@@ -787,7 +800,7 @@ class Window():
         self.drawDataLine()
         self.drawMain()
         self.drawRect()
-
+        
         self.currentIndex.set(self.currentIndex.get() + 1 + self.skipFrames.get())
              #--------- Increment current index  --------- 
         if self.currentIndex.get() >= self.numOfImages-1:

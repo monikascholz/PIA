@@ -9,6 +9,7 @@ from scipy import ndimage
 
 def fluorescence(Image, bgSize,neuronSize, threshold, xC, yC):
     """Calculate fluorescene in a larger ROI around coordinates xC and yC."""
+
     imSize = Image.shape
      # -- Check if box needs to be cropped as it's ranging beyond the image
     yMin = max(0,yC-bgSize)
@@ -30,19 +31,29 @@ def fluorescence(Image, bgSize,neuronSize, threshold, xC, yC):
     mask = np.where(bgImage > threshold, 1, 0)
     mask = ndimage.binary_opening(mask,structure = np.ones((2,2)))
     mask = ndimage.binary_closing(mask)
-    
         # --- Individually label all connected regions and get their center of mass
     label_im, nb_labels = ndimage.label(mask)
     centroids = ndimage.measurements.center_of_mass(bgImage, label_im, xrange(1,nb_labels+1))
+    # --- select brightest object by default (mean brightness)
+    meanBrightness = ndimage.measurements.mean(bgImage, label_im, xrange(1,nb_labels+1))
+#        # --- Calculate the distance of each new cms to the old neuron position
+#        # --- and select the new neuron position to be the object closest to
+#        # --- the old location
+#    dist = []
+#    for coords in centroids:
+#        dist.append((coords[0]-yNeuron)**2 + (coords[1]-xNeuron)**2)
+#    if len(dist)==0:
+#        yNewNeuron,xNewNeuron = yNeuron,  xNeuron
+#    else:
+#        loc = np.argmin(dist)
+#        yNewNeuron,xNewNeuron = centroids[loc]
+    if nb_labels >1:
+        loc = np.argmax(meanBrightness)
+        yNewNeuron,xNewNeuron = centroids[loc]
+    else:
+        yNewNeuron,xNewNeuron = yNeuron,  xNeuron
+        return xNewNeuron+xMin, yNewNeuron+yMin, 1,1
     
-        # --- Calculate the distance of each new cms to the old neuron position
-        # --- and select the new neuron position to be the object closest to
-        # --- the old location
-    dist = []
-    for coords in centroids:
-        dist.append((coords[0]-yNeuron)**2 + (coords[1]-xNeuron)**2)
-    loc = np.argmin(dist)
-    yNewNeuron,xNewNeuron = centroids[loc]
     neuronObject = np.where(label_im == loc+1,0,1)
                 
         # --- Get average of the neuron fluoresence --- 
@@ -58,9 +69,14 @@ def fluorescence(Image, bgSize,neuronSize, threshold, xC, yC):
         xMaxSRegion = min(imSize[1],xNewNeuron+neuronSize)
         
         mask[yMinSRegion:yMaxSRegion,xMinSRegion:xMaxSRegion] = True
-
+        
         bgLevel = np.ma.average(np.ma.masked_array(bgImage, mask))  
     except IndexError:
         newNeuronAverage = 0
         bgLevel = 0
     return xNewNeuron+xMin, yNewNeuron+yMin, newNeuronAverage, bgLevel
+    
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n

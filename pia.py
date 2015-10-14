@@ -19,11 +19,13 @@
 """
 
 import matplotlib as mpl
-mpl.use('Qt4Agg')
+mpl.use('TkAgg')
 import numpy as np
 import matplotlib.pylab as plt
 from matplotlib.patches import Rectangle
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg,  NavigationToolbar2TkAgg
+# implement the default mpl key bindings
+from matplotlib.backend_bases import key_press_handler
 import Tkinter as tk
 import os
 import tkFileDialog as tfd
@@ -92,13 +94,11 @@ class Window():
         self.skipFrames = tk.IntVar()
         self.skipFrames.set(0)
         
-        self.crop = tk.IntVar()
-        self.cropMin = tk.IntVar()
-        self.cropMax = tk.IntVar()
+        self.process = tk.IntVar()
+        
 
-        self.crop.set(0)
-        self.cropMin.set(80)
-        self.cropMax.set(150)
+        self.process.set(0)
+       
         
         self.boxShow = tk.IntVar()
         self.signalThreshold = tk.IntVar()
@@ -106,9 +106,9 @@ class Window():
         self.boxBG = tk.IntVar()
         
         self.boxShow.set(1)
-        self.boxBG.set(300)
+        self.boxBG.set(150)
         self.boxNeuron.set(50)
-        self.signalThreshold.set(97)
+        self.signalThreshold.set(93)
         
         self.data = []
         self.oldData = []
@@ -260,27 +260,15 @@ class Window():
         colorMapOptionsMenu = tk.OptionMenu(optionsFrame,self.colorMap,'gray','blue','green','jet','hot')
         colorMapOptionsMenu.grid(column=7,row=0, sticky="ew")   
         
-             #--------- Crop Image ---------
-        cropOptionsText = tk.StringVar()
-        cropOptionsText.set('Crop image')
-        cropOptionsLabel = tk.Label(optionsFrame,textvariable=cropOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        cropOptionsLabel.grid(column=2,row=1)
-        cropOptionsCheckbutton = tk.Checkbutton(optionsFrame, variable=self.crop)
-        cropOptionsCheckbutton.grid(column=3,row=1)           
+             #--------- track processes Image ---------
+        processOptionsText = tk.StringVar()
+        processOptionsText.set('Track process')
+        processOptionsLabel = tk.Label(optionsFrame,textvariable=processOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
+        processOptionsLabel.grid(column=2,row=1)
+        processOptionsCheckbutton = tk.Checkbutton(optionsFrame, variable=self.process)
+        processOptionsCheckbutton.grid(column=3,row=1)           
 
-        cropMinOptionsText = tk.StringVar()
-        cropMinOptionsText.set('Crop x Min')
-        cropMinOptionsLabel = tk.Label(optionsFrame,textvariable=cropMinOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        cropMinOptionsLabel.grid(column=4,row=1)
-        cropMinOptionsEntry = tk.Entry(optionsFrame,textvariable=self.cropMin,justify=tk.CENTER,width=entryWidth)
-        cropMinOptionsEntry.grid(column=5,row=1)           
-
-        cropMaxOptionsText = tk.StringVar()
-        cropMaxOptionsText.set('Crop x Max')
-        cropMaxOptionsLabel = tk.Label(optionsFrame,textvariable=cropMaxOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        cropMaxOptionsLabel.grid(column=6,row=1)
-        cropMaxOptionsEntry = tk.Entry(optionsFrame,textvariable=self.cropMax,justify=tk.CENTER,width=entryWidth)
-        cropMaxOptionsEntry.grid(column=7,row=1)  
+        
         
              #--------- Rectangle info ---------
         boxOptionsText = tk.StringVar()
@@ -324,8 +312,10 @@ class Window():
         self.canvas = {}
         self.ax = {}
         self.figure = {}
+        self.toolbar = {}
+        
         mainFigureFrame = tk.Frame(root)
-        mainFigureFrame.grid(column=0,row=4,columnspan=2,sticky=tk.W)
+        mainFigureFrame.grid(column=0,row=5,columnspan=2,sticky=tk.NSEW )
         self.figure['Main'] = plt.figure('Main',figsize=(7,7), dpi=100, edgecolor='k',facecolor='w')
         self.canvas['Main'] = FigureCanvasTkAgg(self.figure['Main'], master=mainFigureFrame)
         self.ax['Main'] = self.figure['Main'].add_subplot(111)
@@ -339,25 +329,41 @@ class Window():
         
         #------------------- Data + Analysed Figure Frame ---------------------
         subFigureFrame = tk.Frame(root)
-        subFigureFrame.grid(column=2,row=4,sticky=tk.E)
+        subFigureFrame.grid(column=2,row=5,sticky=tk.NSEW )
+        toolbarFrame1 = tk.Frame(root)
+        toolbarFrame1.grid(column=2,row=4,sticky=tk.S )
+        toolbarFrame2 = tk.Frame(root)
+        toolbarFrame2.grid(column=2,row=6,sticky=tk.S )
+           #--------- Data Figure ---------        
         
              #--------- Data Figure ---------        
         self.figure['Data'] = plt.figure('Data',figsize=(7,3.45), dpi=100, edgecolor='k',facecolor='w')
         self.ax['Data'] = self.figure['Data'].add_subplot(111)
-        plt.tight_layout()
+        #plt.tight_layout()
         self.canvas['Data'] = FigureCanvasTkAgg(self.figure['Data'], master=subFigureFrame)
         self.canvas['Data'].show()
-        self.canvas['Data'].get_tk_widget().pack()
+        #self.canvas['Data'].get_tk_widget().pack()
+        self.toolbar['Data'] = NavigationToolbar2TkAgg(self.canvas['Data'], toolbarFrame1 )
+        self.toolbar['Data'].update()
+        self.canvas['Data']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #self.canvas['Data'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        
         self.cidPress['Data'] = self.canvas['Data'].mpl_connect('button_press_event', self.onPressData)
+        #plt.tight_layout()
 
              #--------- Analyzed Figure ---------        
         self.figure['Flow'] = plt.figure('Flow',figsize=(7,3.45), dpi=100, edgecolor='k',facecolor='w')
         self.ax['Flow'] = self.figure['Flow'].add_subplot(111)
-        plt.tight_layout()
+        #plt.tight_layout()
         self.canvas['Flow'] = FigureCanvasTkAgg(self.figure['Flow'], master=subFigureFrame)
+        self.toolbar['Flow'] = NavigationToolbar2TkAgg( self.canvas['Flow'],toolbarFrame2 )
+        self.toolbar['Flow'].update()
+        #self.canvas['Flow']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.canvas['Flow'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         self.canvas['Flow'].show()
-        self.canvas['Flow'].get_tk_widget().pack()
+        #self.canvas['Flow'].get_tk_widget().pack()
         self.cidPress['Flow'] = self.canvas['Flow'].mpl_connect('button_press_event', self.onPressFlow)
+        #plt.tight_layout()
       
     #=========================================================================#
     #             Define button and click functions
@@ -372,7 +378,7 @@ class Window():
         #=====================================================================#   
     def selectImageFolder(self):
              #--------- Get directory from the user ---------         
-        self.imageFolder.set(tfd.askdirectory(parent=root, initialdir='/home/monika/Copy/workspace spyder/GCamp/HSN GCaMP', title='Select image folder'))
+        self.imageFolder.set(tfd.askdirectory(parent=root, initialdir='/home/monika/Copy/workspace spyder/PIA_old/HSN GCaMP', title='Select image folder'))
         
              #--------- Get all images in folder and sort them --------- 
         tmp = np.array(os.listdir(self.imageFolder.get()))
@@ -385,13 +391,13 @@ class Window():
                 tmpNames[time] = item
         self.imageNames = [tmpNames[x] for x in sorted(tmpTimes)]
         self.numOfImages = len(self.imageNames)
+        self.status[0] = True
             #--------- make a dummy data file with zeros --------- 
-        
+        self.fill_dummy_data()
             #--------- Draw main image and set status of main image --------- 
         self.drawMain()
         self.imSize = self.imageData.shape
-        self.status[0] = True
-        self.fill_dummy_data()
+        self.drawData()
         self.drawDataLine()
         self.updateMain()
         self.drawRect()
@@ -427,11 +433,12 @@ class Window():
              #--------- Plot fluorescence profile  --------- 
         plt.figure('Data')
         self.ax['Data'].cla()
-        self.vLine = []
-        plt.plot(self.data[0],self.data[2],c=UCblue[2],lw=2)
-        plt.plot(self.data[0],self.data[1],c=UCgreen[4],lw=2)
-        plt.xlim(min(self.data[0]),max(self.data[0]))
-        self.canvas['Data'].draw()
+        self.drawData()
+#        self.vLine = []
+#        plt.plot(self.data[0],self.data[2],c=UCblue[2],lw=2)
+#        plt.plot(self.data[0],self.data[1],c=UCgreen[4],lw=2)
+#        plt.xlim(min(self.data[0]),max(self.data[0]))
+#        self.canvas['Data'].draw()
         
              #--------- Set status of data image ---------         
         self.status[1] = True
@@ -468,7 +475,7 @@ class Window():
     def fill_dummy_data(self):
         """empty data set."""
         if self.status[0]:
-            tmpEntries = np.zeros(self.numOfImages)
+            tmpEntries = np.ones(self.numOfImages)
             tmpT = np.arange(self.numOfImages)
             # if data file was previously selected, store this data for reset
             if self.status[1]:
@@ -502,8 +509,9 @@ class Window():
         fl = self.data[2]
         ratio = fl/bg -1
         plt.plot(self.data[0],ratio,c=UCgreen[4],lw=2)
-        n = 5
+        n = 10
         plt.plot(self.data[0][:-n+1],piaImage.moving_average(ratio, n),c=UCgreen[2],lw=2)
+        plt.xlim(min(self.data[0]),max(self.data[0]))
         self.canvas['Flow'].draw()
         return
 
@@ -541,11 +549,11 @@ class Window():
         # region he can drag a rectangle acros the desired region
         #=====================================================================#      
     def onPressMain(self,event):
+        if self.AutoRunActive:
+            self.AutoRunActive = False
+            return
         if self.newAutoRun:
 #            print self.ROI
-#            if len(self.ROI) > 0:
-#                for item in self.ROI:
-#                    item.remove()
             self.ROI = []
             self.ROILocationData = [event.xdata,event.ydata]
             
@@ -569,16 +577,20 @@ class Window():
 
         #=====================================================================#
         # The user has release the mouse button on the main image frame
-        # If he previously specified that he wants to define a new flow
-        # region he can drag a rectangle acros the desired region
+        # If he previously specified that he wants to start the tracker,
+        # click on the image to start the tracker.
         #=====================================================================#    
     def onReleaseMain(self,event):
         if self.newAutoRun:
-            self.ROILocationData = [event.xdata,event.ydata]
-            self.ROI.append(self.ax['Main'].plot(np.round(self.ROILocationData[0]), np.round(self.ROILocationData[1]), 'ro'))
+            #self.ROILocationData = [event.xdata,event.ydata]
+            self. drawRegionOfInterest()
             self.canvas['Main'].draw()
-            self.AutoRunActive = True   
-            self.updateAutoRun()
+            self.AutoRunActive = True
+            if self.AutoRunActive:
+                index = 0
+                self.updateAutoRun(index)
+                if index >= self.numOfImages-1:
+                    self.AutoRunActive = False
             self.newAutoRun = False
         return
         
@@ -599,9 +611,6 @@ class Window():
         #=====================================================================#  
     def drawRegionOfInterest(self):
         plt.figure('Main')
-        if len(self.ROI) > 0:
-            for item in self.ROI:
-                item.remove()
         self.ROI = []
         self.ROI.append(self.ax['Main'].plot(np.round(self.ROILocationData[0]), np.round(self.ROILocationData[1]), 'o', color=UCorange[0]))
         #add_patch(Rectangle((np.round(self.flowRegionData[0][0]), np.round(self.flowRegionData[0][1])), self.flowRegionData[1][0]-self.flowRegionData[0][0], self.flowRegionData[1][1]-self.flowRegionData[0][1], edgecolor=UCgreen[4],facecolor='none',alpha=1,lw=2)))
@@ -611,30 +620,42 @@ class Window():
         #=====================================================================#
         # Update the autotracker results (or create if not run before)
         #=====================================================================#          
-    def updateAutoRun(self):
-        for index, i in enumerate(np.arange(self.currentIndex.get(),self.numOfImages)):
-            if index ==0:
-                # read current image
-                _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
-                # update coordinates
-                tmp_xC, tmp_yC = self.ROILocationData
-                # use same algoruthm as manual to get fluorescence
-                self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
-                self.ax['Main'].plot(self.data[3][0], self.data[4][0], 'o', color= UCmain)
-                self.canvas['Main'].draw()    
-            else:
-                 # read current image
-                _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
-                # update coordinates
-                tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.2, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.2
-                
-                #xC, yC = np.average(self.data[3][max(0,i-3):i]),  np.average(self.data[4][max(0,i-3):i])
-                # use same algoruthm as manual to get fluorescence
-                self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
-                self.ax['Main'].plot(self.data[3][i], self.data[4][i], 'o', color= UCmain)
-                self.canvas['Main'].draw()    
+    def updateAutoRun(self, index):
+        
+        i = self.currentIndex.get()
+        if index ==0:
+            # read current image
+            _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
+            # update coordinates
+            tmp_xC, tmp_yC = self.ROILocationData
+            # use same algoruthm as manual to get fluorescence
+            self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
+            #self.ax['Main'].plot(self.data[3][0], self.data[4][0], 'o', color= UCmain)
+        else:
+             # read current image
+            _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
+            # update coordinates
+            tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.1, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.1
+            
+            #xC, yC = np.average(self.data[3][max(0,i-3):i]),  np.average(self.data[4][max(0,i-3):i])
+            # use same algoruthm as manual to get fluorescence
+            self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
+            #self.
+            #self.ax['Main'].plot(self.data[3][i], self.data[4][i], 'o', color= UCmain)
+        
+        self.drawDataLine()
+        self.updateMain()
+        self.drawRect()
         self.drawData()
-        self.drawMain()
+        if len(self.ROI) > 0:
+            for item in self.ROI:
+                print self.ax['Main'].lines, item
+                self.ax['Main'].lines.remove(item[0])
+                self.ROI = []
+        self.currentIndex.set(i+1)
+        index += 1
+        if self.AutoRunActive and index <= self.numOfImages-1:
+            root.after(2, lambda: self.updateAutoRun(index))
         return
         
     def AutoFluorescenceDetector(self, img, xC, yC, index):
@@ -642,23 +663,19 @@ class Window():
         bgSize = int(np.round(self.boxBG.get()/2.0))
         neuronSize = int(np.round(self.boxNeuron.get()/2.0))
         threshold = self.signalThreshold.get()
-        
-        xNew,yNew,Signal, BgLevel = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
-        # show neuron box   
-        
-        #self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(xNew - neuronSize), np.round(yNew-neuronSize)), 2*neuronSize, 2*neuronSize, edgecolor=UCorange[0],facecolor='none',alpha=1,lw=2)))
-        #self.canvas['Main'].draw()            
-         # --- Update neuron info in data file ---
+        if self.process.get():
+            print self.process
+            xNew,yNew,Signal, BgLevel = piaImage.processFluorescence(img, bgSize,neuronSize, threshold, xC, yC)
+        else:
+            xNew,yNew,Signal, BgLevel = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
+    
+         # --- Update neuron info in data  ---
         self.oldData[:,index] = self.data[:,index] 
         self.data[3][index] = xNew#Neuron+xMin
         self.data[4][index] = yNew#Neuron+yMin
         self.data[2][index] = Signal#newNeuronAverage
         self.data[1][index] = BgLevel#bgLevel
-        
-        #self.ax['Main'].plot(xNew, yNew, 'o', color= UCmain)
-        #self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(x - neuronSize), np.round(y-neuronSize)), 2*neuronSize, 2*neuronSize, edgecolor=UCorange[0],facecolor='none',alpha=1,lw=2)))
-        #self.canvas['Main'].draw()    
-        
+             
         return   
         
         
@@ -669,6 +686,13 @@ class Window():
         # Redraw the main image with updated start index
         #=====================================================================#  
     def onPressData(self,event):
+        if self.toolbar['Data'].mode!='':
+            print("You clicked on something, but toolbar is in mode {:s}.".format(self.toolbar['Data'].mode))
+            return
+        # ------------stop an autorun -------------
+        if self.AutoRunActive:
+            self.AutoRunActive = False
+            
              #--------- Get new image index from click --------- 
         if self.status[0] and self.status[1]:
             if not event.inaxes:
@@ -711,8 +735,10 @@ class Window():
             for item in self.rect:
                 item.remove()
         self.rect = []
-        size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
+        size = self.boxBG.get()/2.0
         self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
+        size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
+        self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
         self.canvas['Main'].draw()
         return
         
@@ -727,9 +753,7 @@ class Window():
         self.imageData = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[self.currentIndex.get()]))
         if self.rotate.get() == 1:
             self.imageData = self.imageData.transpose()
-        if self.crop.get() == 1:
-            self.imageData = self.imageData[:,self.cropMin.get():self.cropMax.get()]
-
+        
              #--------- Delete old image and plot new ---------             
         plt.figure('Main')
         self.ax['Main'].cla()
@@ -752,9 +776,7 @@ class Window():
         self.imageData = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[self.currentIndex.get()]))
         if self.rotate.get() == 1:
             self.imageData = self.imageData.transpose()
-        if self.crop.get() == 1:
-            self.imageData = self.imageData[:,self.cropMin.get():self.cropMax.get()]
-            
+        
              #--------- Update image data ---------             
         self.mainImage.set_data(self.imageData)
         self.canvas['Main'].draw()
@@ -771,7 +793,7 @@ class Window():
     def runControl(self):
                  #--------- Start video plaback  --------- 
         if self.status[0] and not self.status[3]:
-            self._job_id = root.after(int(1.0/float(self.playbackSpeed.get())*1000), lambda: self.newFrame())
+            self._job_id = root.after(int(1000.0/float(self.playbackSpeed.get())), lambda: self.newFrame())
             self.status[3] = True
         return
 

@@ -27,6 +27,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg,  NavigationTool
 # implement the default mpl key bindings
 from matplotlib.backend_bases import key_press_handler
 import Tkinter as tk
+from tkMessageBox import showerror
 import os
 import tkFileDialog as tfd
 import matplotlib.image as mpimg
@@ -69,11 +70,11 @@ class Window():
                        False, # Data File selected
                        False, # Argument File selected
                        False] # Video plaback on
-                       
+        # folders      
         self.imageFolder = tk.StringVar()
         self.dataFile = tk.StringVar()
         self.newFile = tk.StringVar()
-        
+        # control variables
         self.startIndex = tk.IntVar()
         self.startIndex.set(0)
         self.currentIndex = tk.IntVar()
@@ -84,22 +85,26 @@ class Window():
         
         self.imageType = tk.StringVar()
         self.imageType.set('tif')
-        self.imageData = []
-        self.imSize = (0,0)
-        self.rotate = tk.IntVar()
-        self.rotate.set(0)
         
         self.playbackSpeed = tk.IntVar()
         self.playbackSpeed.set(5)
         self.skipFrames = tk.IntVar()
         self.skipFrames.set(0)
+        self.nextImgOnClick = tk.IntVar()
+        self.nextImgOnClick.set(1)
+        self.colorMap = tk.StringVar()
+        self.colorMap.set('gray')
         
-        self.process = tk.IntVar()
-        
-
-        self.process.set(0)
-       
-        
+        # alternative tracking options
+        # track the process too
+        self.mode = tk.StringVar()
+        self.mode.set('Single Neuron')
+        # dual color
+        self.dualX = tk.IntVar()
+        self.dualX.set(40)
+        self.dualY = tk.IntVar()
+        self.dualY.set(-500)
+        # tracking parameters
         self.boxShow = tk.IntVar()
         self.signalThreshold = tk.IntVar()
         self.boxNeuron = tk.IntVar()
@@ -110,260 +115,230 @@ class Window():
         self.boxNeuron.set(50)
         self.signalThreshold.set(93)
         
+        # internal data variables/ storage
+        self.imageData = []
+        self.imSize = (0,0)
         self.data = []
         self.oldData = []
+        self.ncols = 11
+        # matplotlib variables
         self.imageNames = []
         self.mainImage = None
         self.pause = 0
         self.cidPress = {}
         self.vLine = []
         self.rect = []
-        
-        self.colorMap = tk.StringVar()
-        self.colorMap.set('gray')
+        self.canvas = {}
+        self.ax = {}
+        self.figure = {}
+        self.toolbar = {}
         
         self.newAutoRun = False
         self.AutoRunActive = False
         self.ROILocationData = []
         self.ROI = []
-        self.TrackerData = []
-        
-        self.nextImgOnClick = tk.IntVar()
-        self.nextImgOnClick.set(1)
         
         columnWidth = 45
         buttonWidth = 10
         textWidth = 15
         entryWidth = 10
         
-        #--------------------- Select an image folder  ------------------------
-        imageFolderFrame = tk.Frame(root)
-        imageFolderFrame.grid(column=0,row=0,sticky=tk.NW)        
-        imageFolderText = tk.StringVar()
-        imageFolderText.set('Image Folder')
-        imageFolderLabel = tk.Label(imageFolderFrame, textvariable=imageFolderText,width=textWidth,anchor=tk.W,justify=tk.LEFT)
-        imageFolderLabel.pack(side=tk.LEFT)
-        imageFolderEntry = tk.Entry(imageFolderFrame, textvariable=self.imageFolder,width=columnWidth)
-        imageFolderEntry.pack(side=tk.LEFT)
-        imageFolderButton = tk.Button(imageFolderFrame, text = 'Select', fg = 'black', command= self.selectImageFolder,width=buttonWidth)
-        imageFolderButton.pack(side=tk.LEFT)
+        ControlFrame = tk.Frame(root)
+        ControlFrame.pack(expand = 1,fill=tk.BOTH)#grid(column=0,row=0,columnspan=2,sticky=tk.NSEW )
+        #--------------------- display PIA logo  ------------------------
+        LogoFrame = tk.Frame(ControlFrame)
+        LogoFrame.grid(column=0,row=0,rowspan=5,sticky=tk.NSEW)
+        LogoFrame.columnconfigure(0, weight=1)
+        LogoFrame.rowconfigure(0, weight=1)
+        self.figure['Logo'] = plt.figure('Logo', (1.5,1.5),edgecolor='None',facecolor='None')
+        self.canvas['Logo'] = FigureCanvasTkAgg(self.figure['Logo'], master=LogoFrame)
+        self.ax['Logo'] = self.figure['Logo'].add_subplot(111)
+       
+        img=mpimg.imread('PIA.png')
+        self.ax['Logo'].imshow(img)
+        self.ax['Logo'].set_xticks([])
+        self.ax['Logo'].set_yticks([])
+        self.ax['Logo'].set_axis_off()
+        self.canvas['Logo'].show()
+        self.canvas['Logo'].get_tk_widget().grid(column=0,row=0,sticky=tk.NSEW)
+       
+        #--------------------- Select image and data folders folder  ------------------------
+        FolderFrame = tk.Frame(ControlFrame)
+        FolderFrame.grid(column=1,row=0, rowspan=3,sticky=tk.NSEW)
+        FolderFrame.columnconfigure(0, weight=1)
+        FolderFrame.columnconfigure(1, weight=1)
+        names = ['Image Folder', 'Data File','New File']
+        varnames = [self.imageFolder, self.dataFile, self.newFile]
+        actions = [self.selectImageFolder, self.selectDataFile, self.selectNewFile]
+        for i in range(3):
+            tmpText = tk.StringVar()
+            tmpText.set(names[i])
+            FolderFrame.rowconfigure(i, weight=1)
+            tmpFolderLabel = tk.Label(FolderFrame, textvariable=tmpText,width=textWidth,anchor=tk.W,justify=tk.LEFT)
+            tmpFolderLabel.grid(column=0,row=i,sticky=tk.NSEW)
+            tmpFolderEntry = tk.Entry(FolderFrame, textvariable=varnames[i],width=columnWidth)
+            tmpFolderEntry.grid(column=1,row=i,sticky=tk.NSEW)
+            tmpFolderButton = tk.Button(FolderFrame, text = 'Select', fg = 'black', command= actions[i],width=buttonWidth)
+            tmpFolderButton.grid(column=2,row=i,sticky=tk.NSEW)
 
-        #--------------------- Select a data file -----------------------------
-        dataFileFrame = tk.Frame(root)
-        dataFileFrame.grid(column=0,row=1,sticky=tk.NW)        
-        dataFileText = tk.StringVar()
-        dataFileText.set('Data File')
-        dataFileLabel = tk.Label(dataFileFrame, textvariable=dataFileText,width=textWidth,anchor=tk.W,justify=tk.LEFT)
-        dataFileLabel.pack(side=tk.LEFT)
-        dataFileEntry = tk.Entry(dataFileFrame, textvariable=self.dataFile,width=columnWidth)
-        dataFileEntry.pack(side=tk.LEFT)
-        dataFileButton = tk.Button(dataFileFrame, text = 'Select', fg = 'black', command= self.selectDataFile,width=buttonWidth)
-        dataFileButton.pack(side=tk.LEFT)
-
-        #--------------------- Select a new data file ------------------------
-        newFileFrame = tk.Frame(root)
-        newFileFrame.grid(column=0,row=2,sticky=tk.NW)        
-        newFileText = tk.StringVar()
-        newFileText.set('New File')
-        newFileLabel = tk.Label(newFileFrame, textvariable=newFileText,width=textWidth,anchor=tk.W,justify=tk.LEFT)
-        newFileLabel.pack(side=tk.LEFT)
-        newFileEntry = tk.Entry(newFileFrame, textvariable=self.newFile,width=columnWidth)
-        newFileEntry.pack(side=tk.LEFT)
-        newFileButton = tk.Button(newFileFrame, text = 'Select', fg = 'black', command= self.selectNewFile,width=buttonWidth)
-        newFileButton.pack(side=tk.LEFT)
-
-        
         #--------------------- Control Buttons  ------------------------  
-        controlSubFrame1 = tk.Frame(root)
-        controlSubFrame1.grid(column=1,row=0,sticky=tk.N)    
-        runControlButton = tk.Button(controlSubFrame1, text = 'Run', fg = 'black', command= self.runControl,width=buttonWidth)
-        runControlButton.pack(side=tk.LEFT)    
-        pauseControlButton = tk.Button(controlSubFrame1, text = 'Pause', fg = 'black', command= self.pauseControl,width=buttonWidth)
-        pauseControlButton.pack(side=tk.LEFT)  
-        
-        controlSubFrame2 = tk.Frame(root)
-        controlSubFrame2.grid(column=1,row=1,sticky=tk.N)    
-        resetControlButton = tk.Button(controlSubFrame2, text = 'Reset Data', fg = 'black', command= self.resetControl,width=buttonWidth)
-        resetControlButton.pack(side=tk.LEFT)  
-        writeControlButton = tk.Button(controlSubFrame2, text = 'Write Data', fg = 'black', command= self.writeControl,width=buttonWidth)
-        writeControlButton.pack(side=tk.LEFT)     
-        
-        controlSubFrame3 = tk.Frame(root)
-        controlSubFrame3.grid(column=1,row=2,sticky=tk.N)    
-        AutoRunControlButton = tk.Button(controlSubFrame3, text = 'Run Tracker', fg = 'black', command= self.AutoRunControl,width=buttonWidth)
-        AutoRunControlButton.pack(side=tk.LEFT)       
-        writeControlButton = tk.Button(controlSubFrame3, text = 'Write New Data', fg = 'black', command= self.writeNewData,width=buttonWidth)
-        writeControlButton.pack(side=tk.LEFT) 
-        
-        controlSubFrame4 = tk.Frame(root)
-        controlSubFrame4.grid(column=1,row=3,sticky=tk.N)
-            
-        jumpToStartButton = tk.Button(controlSubFrame4, text = 'Jump To Start', fg = 'black', command= self.jumpToStart,width=buttonWidth)
-        jumpToStartButton.pack(side=tk.LEFT)     
-         
+        controlSubFrame1 = tk.Frame(ControlFrame)
+        controlSubFrame1.grid(column=2,row=0,rowspan=4,sticky=tk.NSEW)
+        controlSubFrame1.columnconfigure(0, weight=1)
+        controlSubFrame1.columnconfigure(1, weight=1)
+        buttonText = ['Run', 'Pause', 'Reset Data', 'Overwrite Data', 'Write to new file','','Jump To Start','Run Tracker']
+        buttonCommands = [self.runControl, self.pauseControl, self.resetControl, self.writeControl, self.writeNewData,None,self.jumpToStart,self.AutoRunControl]
+        for i in range(4):
+            controlSubFrame1.rowconfigure(i, weight=1)
+            runControlButton = tk.Button(controlSubFrame1, text = buttonText[2*i], fg = 'black', command= buttonCommands[2*i],width=buttonWidth)
+            runControlButton.grid(column=0,row=i,sticky=tk.NSEW)  
+            if i!=2:
+                pauseControlButton = tk.Button(controlSubFrame1, text = buttonText[2*i+1], fg = 'black', command= buttonCommands[2*i+1],width=buttonWidth)
+                pauseControlButton.grid(column=1,row=i,sticky=tk.NSEW)
+      
         #--------------------- Select options ---------------------------------
-        optionsFrame = tk.Frame(root)
-        optionsFrame.grid(column=2,row=0,rowspan=4,sticky=tk.N)
+        optionsFrame = tk.Frame(ControlFrame)
+        optionsFrame.grid(column=3,row=0,rowspan=5,sticky=tk.NSEW)
+        optionsFrame.columnconfigure(0, weight=1)
+        optionsFrame.columnconfigure(1, weight=1)
         
+        controlSubFrame1.columnconfigure(0, weight=1)
+        controlSubFrame1.columnconfigure(1, weight=1)
             #--------- Start index ---------
-        startOptionsText = tk.StringVar()
-        startOptionsText.set('Starting index')
-        startOptionsLabel = tk.Label(optionsFrame,textvariable=startOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        startOptionsLabel.grid(column=0, row=0)
-        startOptionsEntry = tk.Entry(optionsFrame,textvariable=self.startIndex,justify=tk.CENTER,width=entryWidth)
-        startOptionsEntry.grid(column=1,row=0)
+        optionsLocations = {'Starting index':[(0,0),self.startIndex, 'entry'],
+                            'Current index':[(0,1), self.currentIndex, 'entry'],
+                            'Playback Speed':[(0,2),self.playbackSpeed, 'entry'],
+                            'Skip Frames' :[(0,3),self.skipFrames, 'entry'],
+                            'Next image on click':[(0,5),self.nextImgOnClick, 'check'],
+                            'Show Fl/BG boxes':[(2,0),self.boxShow, 'check'],
+                            'Neuron box size':[(2,1),self.boxNeuron, 'entry'],
+                            'BG box size':[(2,2),self.boxBG, 'entry'],
+                            'Signal Th. [%]':[(2,3),self.signalThreshold, 'entry']
+                            }
+        for key in optionsLocations.keys():
+            nCol, nRow= optionsLocations[key][0]
+            controlSubFrame1.rowconfigure(nRow, weight=1)
+            OptionsText = tk.StringVar()
+            OptionsText.set(key)
+            OptionsLabel = tk.Label(optionsFrame,textvariable=OptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
+            OptionsLabel.grid(column=nCol, row=nRow, sticky=tk.NSEW)
+            if optionsLocations[key][2]=='entry':
+                startOptionsEntry = tk.Entry(optionsFrame,textvariable=optionsLocations[key][1],justify=tk.CENTER,width=entryWidth)
+            elif optionsLocations[key][2]=='check':
+                startOptionsEntry = tk.Checkbutton(optionsFrame, variable=optionsLocations[key][1])
+            startOptionsEntry.grid(column=nCol+1,row=nRow, sticky=tk.NSEW)
+                                  
+             #--------- Dual color tracking ---------
+        dualOptionsText = tk.StringVar()
+        dualOptionsText.set('Track Mode')
+        dualOptionsLabel = tk.Label(optionsFrame,textvariable=dualOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
+        dualOptionsLabel.grid(column=4,row=1, sticky=tk.NSEW)
+        dualOptionsCheckbutton = tk.OptionMenu(optionsFrame, self.mode, 'Single Neuron', 'Dual Color', 'Neuron and Process')
+        dualOptionsCheckbutton.config(width=textWidth)
+        dualOptionsCheckbutton.grid(column=5,row=1,sticky=tk.NSEW)  
 
-            #--------- End index ---------
-        endOptionsText = tk.StringVar()
-        endOptionsText.set('Current index')
-        endOptionsLabel = tk.Label(optionsFrame,textvariable=endOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        endOptionsLabel.grid(column=0, row=1)
-        endOptionsEntry = tk.Entry(optionsFrame,textvariable=self.currentIndex,justify=tk.CENTER,width=entryWidth)
-        endOptionsEntry.grid(column=1,row=1)
- 
-             #--------- Playback Speed ---------
-        playbackOptionsText = tk.StringVar()
-        playbackOptionsText.set('Playback Speed')
-        playbackOptionsLabel = tk.Label(optionsFrame,textvariable=playbackOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        playbackOptionsLabel.grid(column=0,row=2)
-        playbackOptionsEntry = tk.Entry(optionsFrame,textvariable=self.playbackSpeed,justify=tk.CENTER,width=entryWidth)
-        playbackOptionsEntry.grid(column=1,row=2)    
-
-        skipFramesOptionsText = tk.StringVar()
-        skipFramesOptionsText.set('Skip Frames')
-        skipFramesOptionsLabel = tk.Label(optionsFrame,textvariable=skipFramesOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        skipFramesOptionsLabel.grid(column=0,row=3)
-        skipFramesOptionsEntry = tk.Entry(optionsFrame,textvariable=self.skipFrames,justify=tk.CENTER,width=entryWidth)
-        skipFramesOptionsEntry.grid(column=1,row=3)  
+        vecFrame = tk.Frame(optionsFrame)
+        vecFrame.grid(row=0, column=4, columnspan=2, sticky=tk.NSEW)
+              #--------- Dual color tracking ---------
+        dualvecOptionsText = tk.StringVar()
+        dualvecOptionsText.set('dual color shift (x,y)')
+        dualvecOptionsLabel = tk.Label(vecFrame,textvariable=dualvecOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
+        dualvecOptionsLabel.grid(column=0,row=0, sticky=tk.NSEW)
         
-             #--------- Rotate ---------
-        rotateOptionsText = tk.StringVar()
-        rotateOptionsText.set('Rotate image')
-        rotateOptionsLabel = tk.Label(optionsFrame,textvariable=rotateOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        rotateOptionsLabel.grid(column=2,row=0)
-        rotateOptionsCheckbutton = tk.Checkbutton(optionsFrame, variable=self.rotate)
-        rotateOptionsCheckbutton.grid(column=3,row=0)   
+        dualvecOptionsEntry = tk.Entry(vecFrame,textvariable=self.dualX,justify=tk.CENTER,width=5)
+        dualvecOptionsEntry.grid(column=1,row=0, sticky=tk.NSEW)
+        dualvecOptionsEntry = tk.Entry(vecFrame,textvariable=self.dualY,justify=tk.CENTER,width=5)
+        dualvecOptionsEntry.grid(column=2,row=0, sticky=tk.NSEW) 
 
             #--------- Image type ---------
         imTypeOptionsText = tk.StringVar()
         imTypeOptionsText.set('Image data type')
         imTypeOptionsLabel = tk.Label(optionsFrame,textvariable=imTypeOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        imTypeOptionsLabel.grid(column=4,row=0)
+        imTypeOptionsLabel.grid(column=4,row=2, sticky=tk.NSEW)
         imTypeOptionsMenu = tk.OptionMenu(optionsFrame,self.imageType,'tif','png','jpg')
-        imTypeOptionsMenu.grid(column=5,row=0,sticky="ew")
+        imTypeOptionsMenu.grid(column=5,row=2, sticky=tk.NSEW)
 
             #--------- Colormap ---------
         colorMapOptionsText = tk.StringVar()
         colorMapOptionsText.set('Colormap')
         colorMapOptionsLabel = tk.Label(optionsFrame,textvariable=colorMapOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        colorMapOptionsLabel.grid(column=6,row=0)
+        colorMapOptionsLabel.grid(column=4,row=3, sticky=tk.NSEW)
         colorMapOptionsMenu = tk.OptionMenu(optionsFrame,self.colorMap,'gray','blue','green','jet','hot')
-        colorMapOptionsMenu.grid(column=7,row=0, sticky="ew")   
-        
-             #--------- track processes Image ---------
-        processOptionsText = tk.StringVar()
-        processOptionsText.set('Track process')
-        processOptionsLabel = tk.Label(optionsFrame,textvariable=processOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        processOptionsLabel.grid(column=2,row=1)
-        processOptionsCheckbutton = tk.Checkbutton(optionsFrame, variable=self.process)
-        processOptionsCheckbutton.grid(column=3,row=1)           
-
-        
-        
-             #--------- Rectangle info ---------
-        boxOptionsText = tk.StringVar()
-        boxOptionsText.set('Show signal/BG boxes')
-        boxOptionsLabel = tk.Label(optionsFrame,textvariable=boxOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        boxOptionsLabel.grid(column=2,row=2)
-        boxOptionsCheckbutton = tk.Checkbutton(optionsFrame, variable=self.boxShow)
-        boxOptionsCheckbutton.grid(column=3,row=2)           
-
-        boxNeuronOptionsText = tk.StringVar()
-        boxNeuronOptionsText.set('Neuron box size')
-        boxNeuronOptionsLabel = tk.Label(optionsFrame,textvariable=boxNeuronOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        boxNeuronOptionsLabel.grid(column=4,row=2)
-        boxNeuronOptionsEntry = tk.Entry(optionsFrame,textvariable=self.boxNeuron,justify=tk.CENTER,width=entryWidth)
-        boxNeuronOptionsEntry.grid(column=5,row=2)           
-
-        boxBGOptionsText = tk.StringVar()
-        boxBGOptionsText.set('BG box size')
-        boxBGOptionsLabel = tk.Label(optionsFrame,textvariable=boxBGOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        boxBGOptionsLabel.grid(column=6,row=2)
-        boxBGOptionsEntry = tk.Entry(optionsFrame,textvariable=self.boxBG,justify=tk.CENTER,width=entryWidth)
-        boxBGOptionsEntry.grid(column=7,row=2)    
-
-        signalThresholdOptionsText = tk.StringVar()
-        signalThresholdOptionsText.set(r'Signal Th. [%]')
-        signalThresholdOptionsLabel = tk.Label(optionsFrame,textvariable=signalThresholdOptionsText,anchor=tk.E,justify=tk.RIGHT,width=textWidth)
-        signalThresholdOptionsLabel.grid(column=4,row=3)
-        signalThresholdOptionsEntry = tk.Entry(optionsFrame,textvariable=self.signalThreshold,justify=tk.CENTER,width=entryWidth)
-        signalThresholdOptionsEntry.grid(column=5,row=3)    
-
-           #--------- Next Image On Click ---------
-        nextOnClickText = tk.StringVar()
-        nextOnClickText.set('Next image on click')
-        nextOnClickLabel = tk.Label(optionsFrame,textvariable=nextOnClickText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
-        nextOnClickLabel.grid(column=2,row=3)
-        nextOnClickCheckbutton = tk.Checkbutton(optionsFrame, variable=self.nextImgOnClick)
-        nextOnClickCheckbutton.grid(column=3,row=3)  
-     
+        colorMapOptionsMenu.grid(column=5,row=3, sticky=tk.NSEW)   
         
         #------------------------ Main Figure Frame ---------------------------
-        self.canvas = {}
-        self.ax = {}
-        self.figure = {}
-        self.toolbar = {}
+        
         
         mainFigureFrame = tk.Frame(root)
-        mainFigureFrame.grid(column=0,row=5,columnspan=2,sticky=tk.NSEW )
+        mainFigureFrame.pack(fill=tk.BOTH,expand = 1)#.grid(column=0,row=1,columnspan=5,rowspan=1,sticky=tk.NSEW)
+        vidFrame = tk.Frame(mainFigureFrame)
+        vidFrame.grid(column=0,row=0,rowspan=3,sticky=tk.NSEW )
+        vidFrame.columnconfigure(0, weight=1)
+        vidFrame.columnconfigure(1, weight=1)
+        
         self.figure['Main'] = plt.figure('Main',figsize=(7,7), dpi=100, edgecolor='k',facecolor='w')
-        self.canvas['Main'] = FigureCanvasTkAgg(self.figure['Main'], master=mainFigureFrame)
+        self.canvas['Main'] = FigureCanvasTkAgg(self.figure['Main'], master=vidFrame)
         self.ax['Main'] = self.figure['Main'].add_subplot(111)
         plt.setp(self.ax['Main'].get_xticklabels(), visible=False)
         plt.setp(self.ax['Main'].get_yticklabels(), visible=False)
         plt.tight_layout()
         self.canvas['Main'].show()
-        self.canvas['Main'].get_tk_widget().pack()
+        self.canvas['Main'].get_tk_widget().pack(expand=1)
         self.cidPress['Main'] = self.canvas['Main'].mpl_connect('button_press_event', self.onPressMain)
         self.cidPress['Main2'] = self.canvas['Main'].mpl_connect('button_release_event', self.onReleaseMain)
         
         #------------------- Data + Analysed Figure Frame ---------------------
-        subFigureFrame = tk.Frame(root)
-        subFigureFrame.grid(column=2,row=5,sticky=tk.NSEW )
-        toolbarFrame1 = tk.Frame(root)
-        toolbarFrame1.grid(column=2,row=4,sticky=tk.S )
-        toolbarFrame2 = tk.Frame(root)
-        toolbarFrame2.grid(column=2,row=6,sticky=tk.S )
+        subFigureFrame = tk.Frame(mainFigureFrame)
+        subFigureFrame.grid(column=1,row=1,sticky=tk.NSEW )
+        subFigureFrame.columnconfigure(0, weight=1)
+        subFigureFrame.columnconfigure(1, weight=1)
+        subFigureFrame.rowconfigure(0, weight=1)
+        subFigureFrame.rowconfigure(1, weight=1)
+        toolbarFrame1 = tk.Frame(mainFigureFrame)
+        toolbarFrame1.grid(column=1,row=0,sticky=tk.NSEW)
+        toolbarFrame1.columnconfigure(0, weight=1)
+        toolbarFrame1.columnconfigure(0, weight=1)
+        
+        toolbarFrame2 = tk.Frame(mainFigureFrame)
+        toolbarFrame2.grid(column=1,row=2,sticky=tk.NSEW)
+        toolbarFrame2.columnconfigure(0, weight=1)
            #--------- Data Figure ---------        
         
              #--------- Data Figure ---------        
-        self.figure['Data'] = plt.figure('Data',figsize=(7,3.45), dpi=100, edgecolor='k',facecolor='w')
+        self.figure['Data'] = plt.figure('Data',figsize=(9,3.), dpi=100, edgecolor='k',facecolor='w')
+        
         self.ax['Data'] = self.figure['Data'].add_subplot(111)
-        #plt.tight_layout()
+        self.ax['Data'].set_xlabel('time (frames)')
+        self.ax['Data'].set_ylabel('Raw Fluorescence')
+        
         self.canvas['Data'] = FigureCanvasTkAgg(self.figure['Data'], master=subFigureFrame)
         self.canvas['Data'].show()
         #self.canvas['Data'].get_tk_widget().pack()
-        self.toolbar['Data'] = NavigationToolbar2TkAgg(self.canvas['Data'], toolbarFrame1 )
+        self.toolbar['Data'] = NavigationToolbar2TkAgg(self.canvas['Data'], toolbarFrame1)
         self.toolbar['Data'].update()
-        self.canvas['Data']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        #self.canvas['Data'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #self.canvas['Data'].get_tk_widget().grid(column=0, row=0,sticky=tk.NSEW)
+        self.canvas['Data'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         
         self.cidPress['Data'] = self.canvas['Data'].mpl_connect('button_press_event', self.onPressData)
-        #plt.tight_layout()
+        plt.tight_layout()
 
              #--------- Analyzed Figure ---------        
-        self.figure['Flow'] = plt.figure('Flow',figsize=(7,3.45), dpi=100, edgecolor='k',facecolor='w')
+        self.figure['Flow'] = plt.figure('Flow',figsize=(9,3.), dpi=100, edgecolor='k',facecolor='w')
         self.ax['Flow'] = self.figure['Flow'].add_subplot(111)
+        self.ax['Flow'].set_xlabel('time (frames)')
+        self.ax['Flow'].set_ylabel('F/Bg')
         #plt.tight_layout()
         self.canvas['Flow'] = FigureCanvasTkAgg(self.figure['Flow'], master=subFigureFrame)
-        self.toolbar['Flow'] = NavigationToolbar2TkAgg( self.canvas['Flow'],toolbarFrame2 )
-        self.toolbar['Flow'].update()
-        #self.canvas['Flow']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        self.canvas['Flow'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         self.canvas['Flow'].show()
+        self.toolbar['Flow'] = NavigationToolbar2TkAgg( self.canvas['Flow'],toolbarFrame2)
+        self.toolbar['Flow'].update()
+        self.canvas['Flow']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #self.canvas['Flow'].get_tk_widget().grid(row=1, column = 0,sticky=tk.NSEW)
+        
+        
         #self.canvas['Flow'].get_tk_widget().pack()
         self.cidPress['Flow'] = self.canvas['Flow'].mpl_connect('button_press_event', self.onPressFlow)
-        #plt.tight_layout()
+        plt.tight_layout()
       
     #=========================================================================#
     #             Define button and click functions
@@ -378,30 +353,38 @@ class Window():
         #=====================================================================#   
     def selectImageFolder(self):
              #--------- Get directory from the user ---------         
-        self.imageFolder.set(tfd.askdirectory(parent=root, initialdir='/home/monika/Copy/workspace spyder/PIA_old/HSN GCaMP', title='Select image folder'))
-        
-             #--------- Get all images in folder and sort them --------- 
-        tmp = np.array(os.listdir(self.imageFolder.get()))
-        tmpNames = {}
-        tmpTimes = []
-        for item in tmp:
-            if item[-3:] == self.imageType.get():
-                time = float(item[:-4].split('_')[3])
-                tmpTimes.append(time)
-                tmpNames[time] = item
-        self.imageNames = [tmpNames[x] for x in sorted(tmpTimes)]
-        self.numOfImages = len(self.imageNames)
-        self.status[0] = True
-            #--------- make a dummy data file with zeros --------- 
-        self.fill_dummy_data()
-            #--------- Draw main image and set status of main image --------- 
-        self.drawMain()
-        self.imSize = self.imageData.shape
-        self.drawData()
-        self.drawDataLine()
-        self.updateMain()
-        self.drawRect()
-        return
+        tmp_file = tfd.askdirectory(parent=root, initialdir='/home/monika/Desktop/', title='Select image folder')
+        if not os.path.isdir:
+            showerror(title = "Image directory error", message = "Not an image directory")
+        else:
+            self.imageFolder.set(tmp_file)
+                 #--------- Get all images in folder and sort them --------- 
+            tmp = np.array(os.listdir(self.imageFolder.get()))
+            
+            tmpNames = {}
+            tmpTimes = []
+            for item in tmp:
+                if item[-3:] == self.imageType.get():
+                    
+                    time = float(item[:-4].split('_')[-1])#float(item[:-4].split('_')[3])
+                    
+                    tmpTimes.append(time)
+                    tmpNames[time] = item
+            if len(tmpNames)==0:
+                showerror(title = "Images not found", message = "No images found i")
+                return
+            self.imageNames = [tmpNames[x] for x in sorted(tmpTimes)]
+            self.numOfImages = len(self.imageNames)
+            self.status[0] = True
+                #--------- make a dummy data file with zeros --------- 
+            self.fill_dummy_data()
+                #--------- Draw main image and set status of main image --------- 
+            self.drawMain()
+            self.imSize = self.imageData.shape
+            self.drawData()
+            self.drawDataLine()
+            self.updateMain()
+            self.drawRect()
 
         #=====================================================================#
         # Select button for the data file has been pressed
@@ -412,34 +395,40 @@ class Window():
     def selectDataFile(self):
              #--------- Get data file from user --------- 
         self.dataFile.set(tfd.askopenfilename(parent=root, initialdir='./', title='Select existing data file'))
-
+        if not os.path.isfile(self.dataFile.get()):
+            showerror(title = "File opening error", message = "File does not exist.")
+            self.dataFile.set('')  
+            return 
+        num_lines = sum(1 for line in open(self.dataFile.get(),'r'))
+        
+        # the columns are t,bg, f, x, y a for channel 1 and 2 respectively
              #--------- Read data file  --------- 
         with open(self.dataFile.get(),'r') as f:
-            tmpX = []
-            tmpY = []
-            tmpSF = []
-            tmpBF = []
-            tmpT = []
+            self.data = np.ones((num_lines,self.ncols))
+            self.data[:,0] = np.arange(num_lines)
+            lindex = 0
             for line in f.readlines():
-                ln = np.array(line.split(),dtype='float')
-                tmpT.append(ln[0])
-                tmpBF.append(ln[1])
-                tmpSF.append(ln[2])
-                tmpX.append(ln[3])
-                tmpY.append(ln[4])
-        self.data = np.array([tmpT,tmpBF,tmpSF,tmpX,tmpY])
-        self.oldData = np.array([tmpT,tmpBF,tmpSF,tmpX,tmpY])
+                if line[0]=='#':
+                    continue
+                try:
+                    ln = np.array(line.split(),dtype='float')
+                except ValueError:
+                    showerror(title = "File opening error", message = "File is not supported.")
+                    break
+                if len(ln) !=self.ncols:
+                    #tk.Tk.withdraw()
+                    showerror(title = "File opening error", message = "File does not have the correct number of columns.")
+                    break
+                else:
+                    self.data[lindex] = ln
+                lindex+=1
+        self.data = self.data.T
+        self.oldData = self.data
         
              #--------- Plot fluorescence profile  --------- 
         plt.figure('Data')
         self.ax['Data'].cla()
         self.drawData()
-#        self.vLine = []
-#        plt.plot(self.data[0],self.data[2],c=UCblue[2],lw=2)
-#        plt.plot(self.data[0],self.data[1],c=UCgreen[4],lw=2)
-#        plt.xlim(min(self.data[0]),max(self.data[0]))
-#        self.canvas['Data'].draw()
-        
              #--------- Set status of data image ---------         
         self.status[1] = True
         return
@@ -447,21 +436,16 @@ class Window():
         # Select button for the new data file has been pressed. This avoids overwriting existing data.
         #=====================================================================#  
     def selectNewFile(self):
-             #--------- Get argument file from user  --------- 
-        self.newFile.set(tfd.asksaveasfilename(parent=root, initialdir='./', title='Select argument file'))
+        self.newFile.set(tfd.asksaveasfilename(parent=root, initialdir='./', title='Select a filename to save to'))
         self.status[2] = True
-             #--------- If we have data, create and show empty data  --------- 
         return
         
         #=====================================================================#
         # Write new data file. The old one is being overwritten
         #=====================================================================#  
     def writeControl(self):
-        with open(self.dataFile.get(),'w') as f:
-            for i in range(len(self.data[0])):
-                f.write('%f %f %f %f %f\n'%(self.data[0][i],self.data[1][i],self.data[2][i],self.data[3][i],self.data[4][i]))
+        np.savetxt(self.dataFile.get(), self.data.T,  delimiter=' ', newline='\n', header='#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2')
         return
-
         #=====================================================================#
         # Reset all changes made to the data or reset to zeros
         #=====================================================================#          
@@ -475,14 +459,14 @@ class Window():
     def fill_dummy_data(self):
         """empty data set."""
         if self.status[0]:
-            tmpEntries = np.ones(self.numOfImages)
-            tmpT = np.arange(self.numOfImages)
             # if data file was previously selected, store this data for reset
             if self.status[1]:
                 self.oldData = self.data
-                self.data = np.array([tmpT,tmpEntries,tmpEntries,tmpEntries,tmpEntries])
+                self.data = np.ones((self.ncols,self.numOfImages))
+                self.data[0] = np.arange(self.numOfImages)
             else:
-                self.data = np.array([tmpT,tmpEntries,tmpEntries,tmpEntries,tmpEntries])
+                self.data = np.ones((self.ncols,self.numOfImages))
+                self.data[0] = np.arange(self.numOfImages)
                 self.oldData = self.data
         self.status[1] = True
             
@@ -495,22 +479,42 @@ class Window():
         plt.figure('Data')
         self.ax['Data'].cla()
         self.vLine = []
-        plt.plot(self.oldData[0],self.oldData[2],c=UCblue[2],lw=1,ls='dotted')
-        plt.plot(self.data[0],self.data[2],c=UCblue[2],lw=2)
-        plt.plot(self.oldData[0],self.oldData[1],c=UCgreen[4],lw=1,ls='dotted')
-        plt.plot(self.data[0],self.data[1],c=UCgreen[4],lw=2)
-        plt.xlim(min(self.data[0]),max(self.data[0]))
+        # from data set 1
+        time = self.data[0]
+        bg1 = self.data[1]
+        fl1 = self.data[2]
+        ratio = fl1/bg1 -1
+        # ----------plot fluorescence--------------#
+        plt.plot(self.oldData[0],self.oldData[2],c=UCred[2],lw=1,ls='dotted')
+        plt.plot(time,fl1,c=UCred[2],lw=2)
+        # ----------plot background--------------#
+        plt.plot(self.oldData[0],self.oldData[1],c=UCorange[0],lw=1,ls='dotted')
+        plt.plot(time,bg1,c=UCorange[0],lw=2)
+        # from data set 2
+        bg2 = self.data[6]
+        fl2 = self.data[7]
+        ratio2 = fl2/bg2 -1
+        # ----------plot fluorescence--------------#
+        plt.plot(self.oldData[0],self.oldData[7],c=UCgreen[0],lw=1,ls='dotted')
+        plt.plot(time,fl2,c=UCgreen[0],lw=2)
+        # ----------plot background--------------#
+        plt.plot(self.oldData[0],self.oldData[6],c=UCgreen[2],lw=1,ls='dotted')
+        plt.plot(time,bg2,c=UCgreen[2],lw=2)
+        plt.xlim(min(time),max(time))
+        
         self.canvas['Data'].draw()
         self.drawDataLine()
         # draw background subtracted data - (F-Bg)
         plt.figure('Flow')
         self.ax['Flow'].cla()
-        bg = self.data[1]+1
-        fl = self.data[2]
-        ratio = fl/bg -1
-        plt.plot(self.data[0],ratio,c=UCgreen[4],lw=2)
+        ratio3 = (fl2-bg2)/(fl1-bg1)
+        plt.plot(time,ratio,c=UCred[0],lw=2, label = 'Channel 1 - Red')
+        plt.plot(time,ratio2,c=UCgreen[0],lw=2, label = 'Channel 2 - Green')
+        plt.plot(time,ratio3,c=UCblue[0],lw=2, label = '(Green-Red)/Red')
         n = 10
-        plt.plot(self.data[0][:-n+1],piaImage.moving_average(ratio, n),c=UCgreen[2],lw=2)
+        plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCred[2],lw=2)
+        plt.plot(time[:-n+1],piaImage.moving_average(ratio2, n),c=UCgreen[2],lw=2)
+        plt.plot(time[:-n+1],piaImage.moving_average(ratio3, n),c=UCblue[2],lw=2)
         plt.xlim(min(self.data[0]),max(self.data[0]))
         self.canvas['Flow'].draw()
         return
@@ -522,9 +526,7 @@ class Window():
     def writeNewData(self):
         '''write new data set without overwriting old data.'''
         if self.status[2] and len(self.data)>0:
-            with open(self.newFile.get(),'w') as f:
-                for i in range(len(self.data[0])):
-                    f.write('%f %f %f %f %f\n'%(self.data[0][i],self.data[1][i],self.data[2][i],self.data[3][i],self.data[4][i]))
+            np.savetxt(self.newFile.get(), self.data.T,  delimiter=' ', newline='\n', header='#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2')
         return
         #=====================================================================#
         # If active the user may draw another flow rectangular
@@ -628,28 +630,22 @@ class Window():
             _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
             # update coordinates
             tmp_xC, tmp_yC = self.ROILocationData
-            # use same algoruthm as manual to get fluorescence
+            # use same algorithm as manual to get fluorescence
             self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
-            #self.ax['Main'].plot(self.data[3][0], self.data[4][0], 'o', color= UCmain)
+            
         else:
              # read current image
             _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
             # update coordinates
             tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.1, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.1
-            
-            #xC, yC = np.average(self.data[3][max(0,i-3):i]),  np.average(self.data[4][max(0,i-3):i])
-            # use same algoruthm as manual to get fluorescence
             self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
-            #self.
-            #self.ax['Main'].plot(self.data[3][i], self.data[4][i], 'o', color= UCmain)
-        
+           
         self.drawDataLine()
         self.updateMain()
         self.drawRect()
         self.drawData()
         if len(self.ROI) > 0:
             for item in self.ROI:
-                print self.ax['Main'].lines, item
                 self.ax['Main'].lines.remove(item[0])
                 self.ROI = []
         self.currentIndex.set(i+1)
@@ -663,22 +659,16 @@ class Window():
         bgSize = int(np.round(self.boxBG.get()/2.0))
         neuronSize = int(np.round(self.boxNeuron.get()/2.0))
         threshold = self.signalThreshold.get()
-        if self.process.get():
-            print self.process
-            xNew,yNew,Signal, BgLevel = piaImage.processFluorescence(img, bgSize,neuronSize, threshold, xC, yC)
+        if self.mode.get()=='Neuron and Process':
+            trackResult = piaImage.processFluorescence(img, bgSize,neuronSize, threshold, xC, yC)
+        elif self.mode.get()=='Dual Color':
+            trackResult = piaImage.dualFluorescence(img, bgSize,neuronSize, threshold, xC, yC, [self.dualX.get(),self.dualY.get()])
         else:
-            xNew,yNew,Signal, BgLevel = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
-    
+            trackResult = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
          # --- Update neuron info in data  ---
-        self.oldData[:,index] = self.data[:,index] 
-        self.data[3][index] = xNew#Neuron+xMin
-        self.data[4][index] = yNew#Neuron+yMin
-        self.data[2][index] = Signal#newNeuronAverage
-        self.data[1][index] = BgLevel#bgLevel
-             
-        return   
-        
-        
+        self.oldData[:,index] = self.data[:,index]
+        self.data[1::,index] = trackResult
+
         #=====================================================================#
         # The user has clicked on the data image frame
         # Get click position and set the position tracker line to these coords
@@ -731,15 +721,29 @@ class Window():
         #=====================================================================#
     def drawRect(self):
         plt.figure('Main')
-        if len(self.rect) > 0:
-            for item in self.rect:
-                item.remove()
-        self.rect = []
-        size = self.boxBG.get()/2.0
-        self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
-        size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
-        self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
-        self.canvas['Main'].draw()
+        if self.mode.get() =='Dual Color':
+            if len(self.rect) > 0:
+                for item in self.rect:
+                    item.remove()
+            self.rect = []
+            size = self.boxBG.get()/2.0
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()])+self.dualX.get() - size, np.round(self.data[4][self.currentIndex.get()]) +self.dualY.get() - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
+            size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) +self.dualX.get()- size, np.round(self.data[4][self.currentIndex.get()]) +self.dualY.get() - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
+            self.canvas['Main'].draw()
+        else:
+            if len(self.rect) > 0:
+                for item in self.rect:
+                    item.remove()
+            self.rect = []
+            size = self.boxBG.get()/2.0
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
+            size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
+            self.canvas['Main'].draw()
+        
         return
         
         #=====================================================================#
@@ -751,9 +755,7 @@ class Window():
     def drawMain(self):
              #--------- Load image with current index --------- 
         self.imageData = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[self.currentIndex.get()]))
-        if self.rotate.get() == 1:
-            self.imageData = self.imageData.transpose()
-        
+       
              #--------- Delete old image and plot new ---------             
         plt.figure('Main')
         self.ax['Main'].cla()
@@ -774,8 +776,6 @@ class Window():
     def updateMain(self):
              #--------- Load image with current index --------- 
         self.imageData = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[self.currentIndex.get()]))
-        if self.rotate.get() == 1:
-            self.imageData = self.imageData.transpose()
         
              #--------- Update image data ---------             
         self.mainImage.set_data(self.imageData)

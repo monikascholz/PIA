@@ -138,7 +138,7 @@ class Window():
         self.ROILocationData = []
         self.ROI = []
         
-        columnWidth = 45
+        columnWidth = 40
         buttonWidth = 10
         textWidth = 15
         entryWidth = 10
@@ -478,6 +478,8 @@ class Window():
         # draw raw data and background
         plt.figure('Data')
         self.ax['Data'].cla()
+        self.ax['Data'].set_xlabel('time (frames)')
+        self.ax['Data'].set_ylabel('Raw Fluorescence')
         self.vLine = []
         # from data set 1
         time = self.data[0]
@@ -507,6 +509,8 @@ class Window():
         # draw background subtracted data - (F-Bg)
         plt.figure('Flow')
         self.ax['Flow'].cla()
+        self.ax['Flow'].set_xlabel('time (frames)')
+        self.ax['Flow'].set_ylabel('F/Bg')
         ratio3 = (fl2-bg2)/(fl1-bg1)
         plt.plot(time,ratio,c=UCred[0],lw=2, label = 'Channel 1 - Red')
         plt.plot(time,ratio2,c=UCgreen[0],lw=2, label = 'Channel 2 - Green')

@@ -121,6 +121,9 @@ def dualFluorescence(Image, bgSize,neuronSize, threshold, xC, yC, shift):
     GreenImage, _,_ = cropImage(Image, xC+shift[0], yC+shift[1], bgSize, imSize)
     
     tmpGreenNeuron = np.ma.masked_array(GreenImage, neuronObject)
+    if GreenImage.shape!= neuronObject:
+        return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,
+    
     GreenNeuronAverage = np.ma.average(tmpGreenNeuron)
     GreenbgLevel = calculateWithMask(GreenImage, xNewNeuron,yNewNeuron,neuronSize,imSize)
     

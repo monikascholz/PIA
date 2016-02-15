@@ -101,9 +101,9 @@ class Window():
         self.mode.set('Single Neuron')
         # dual color
         self.dualX = tk.IntVar()
-        self.dualX.set(40)
+        self.dualX.set(-10)
         self.dualY = tk.IntVar()
-        self.dualY.set(-500)
+        self.dualY.set(-510)
         # tracking parameters
         self.boxShow = tk.IntVar()
         self.signalThreshold = tk.IntVar()
@@ -111,16 +111,16 @@ class Window():
         self.boxBG = tk.IntVar()
         
         self.boxShow.set(1)
-        self.boxBG.set(150)
+        self.boxBG.set(200)
         self.boxNeuron.set(50)
-        self.signalThreshold.set(93)
+        self.signalThreshold.set(95)
         
         # internal data variables/ storage
         self.imageData = []
         self.imSize = (0,0)
         self.data = []
         self.oldData = []
-        self.ncols = 11
+        self.ncols = 21
         # matplotlib variables
         self.imageNames = []
         self.mainImage = None
@@ -233,7 +233,7 @@ class Window():
         dualOptionsText.set('Track Mode')
         dualOptionsLabel = tk.Label(optionsFrame,textvariable=dualOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
         dualOptionsLabel.grid(column=4,row=1, sticky=tk.NSEW)
-        dualOptionsCheckbutton = tk.OptionMenu(optionsFrame, self.mode, 'Single Neuron', 'Dual Color', 'Neuron and Process')
+        dualOptionsCheckbutton = tk.OptionMenu(optionsFrame, self.mode, 'Single Neuron', 'Dual Color', 'Vulva neurons','Neuron and Process')
         dualOptionsCheckbutton.config(width=textWidth)
         dualOptionsCheckbutton.grid(column=5,row=1,sticky=tk.NSEW)  
 
@@ -318,7 +318,7 @@ class Window():
         self.toolbar['Data'].update()
         #self.canvas['Data'].get_tk_widget().grid(column=0, row=0,sticky=tk.NSEW)
         self.canvas['Data'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        
+        #self.canvas['Data']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         self.cidPress['Data'] = self.canvas['Data'].mpl_connect('button_press_event', self.onPressData)
         plt.tight_layout()
 
@@ -334,10 +334,8 @@ class Window():
         self.toolbar['Flow'].update()
         self.canvas['Flow']._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         #self.canvas['Flow'].get_tk_widget().grid(row=1, column = 0,sticky=tk.NSEW)
-        
-        
         #self.canvas['Flow'].get_tk_widget().pack()
-        self.cidPress['Flow'] = self.canvas['Flow'].mpl_connect('button_press_event', self.onPressFlow)
+        #self.cidPress['Flow'] = self.canvas['Flow'].mpl_connect('button_press_event', self.onPressFlow)
         plt.tight_layout()
       
     #=========================================================================#
@@ -353,38 +351,32 @@ class Window():
         #=====================================================================#   
     def selectImageFolder(self):
              #--------- Get directory from the user ---------         
-        tmp_file = tfd.askdirectory(parent=root, initialdir='/home/monika/Desktop/', title='Select image folder')
+        tmp_file = tfd.askdirectory(parent=root, initialdir='/home/monika/Desktop/worm_figures_for_talks/vulvalmuscles_sample', title='Select image folder')
         if not os.path.isdir:
             showerror(title = "Image directory error", message = "Not an image directory")
         else:
             self.imageFolder.set(tmp_file)
                  #--------- Get all images in folder and sort them --------- 
             tmp = np.array(os.listdir(self.imageFolder.get()))
-            
             tmpNames = {}
             tmpTimes = []
             for item in tmp:
                 if item[-3:] == self.imageType.get():
-                    
                     time = float(item[:-4].split('_')[-1])#float(item[:-4].split('_')[3])
-                    
                     tmpTimes.append(time)
                     tmpNames[time] = item
             if len(tmpNames)==0:
-                showerror(title = "Images not found", message = "No images found i")
+                showerror(title = "Images not found", message = "No images found in folder!")
                 return
             self.imageNames = [tmpNames[x] for x in sorted(tmpTimes)]
             self.numOfImages = len(self.imageNames)
             self.status[0] = True
+            
                 #--------- make a dummy data file with zeros --------- 
             self.fill_dummy_data()
                 #--------- Draw main image and set status of main image --------- 
-            self.drawMain()
+            self.redrawMain()
             self.imSize = self.imageData.shape
-            self.drawData()
-            self.drawDataLine()
-            self.updateMain()
-            self.drawRect()
 
         #=====================================================================#
         # Select button for the data file has been pressed
@@ -399,29 +391,30 @@ class Window():
             showerror(title = "File opening error", message = "File does not exist.")
             self.dataFile.set('')  
             return 
-        num_lines = sum(1 for line in open(self.dataFile.get(),'r'))
+        #num_lines = sum(1 for line in open(self.dataFile.get(),'r'))
         
-        # the columns are t,bg, f, x, y a for channel 1 and 2 respectively
+        # the columns are t, bg, f, x, y a for channel 1 and 2 respectively
              #--------- Read data file  --------- 
-        with open(self.dataFile.get(),'r') as f:
-            self.data = np.ones((num_lines,self.ncols))
-            self.data[:,0] = np.arange(num_lines)
-            lindex = 0
-            for line in f.readlines():
-                if line[0]=='#':
-                    continue
-                try:
-                    ln = np.array(line.split(),dtype='float')
-                except ValueError:
-                    showerror(title = "File opening error", message = "File is not supported.")
-                    break
-                if len(ln) !=self.ncols:
-                    #tk.Tk.withdraw()
-                    showerror(title = "File opening error", message = "File does not have the correct number of columns.")
-                    break
-                else:
-                    self.data[lindex] = ln
-                lindex+=1
+        self.data = np.loadtxt(self.dataFile.get())
+#        with open(self.dataFile.get(),'r') as f:
+#            self.data = np.ones((num_lines,self.ncols))
+#            self.data[:,0] = np.arange(num_lines)
+#            lindex = 0
+#            for line in f.readlines():
+#                if line[0]=='#':
+#                    continue
+#                try:
+#                    ln = np.array(line.split(),dtype='float')
+#                except ValueError:
+#                    showerror(title = "File opening error", message = "File is not supported.")
+#                    break
+#                if len(ln) !=self.ncols:
+#                    #tk.Tk.withdraw()
+#                    showerror(title = "File opening error", message = "File does not have the correct number of columns.")
+#                    break
+#                else:
+#                    self.data[lindex] = ln
+#                lindex+=1
         self.data = self.data.T
         self.oldData = self.data
         
@@ -469,7 +462,16 @@ class Window():
                 self.data[0] = np.arange(self.numOfImages)
                 self.oldData = self.data
         self.status[1] = True
-            
+        #=====================================================================#
+        # redraw all plots in main window
+        #=====================================================================# 
+    def redrawMain(self):
+        """draw video frame, data, lines and location rectangle."""
+        self.drawMain()
+        self.drawData()
+        self.drawDataLine()
+        #self.updateMain()
+        self.drawRect()
         #=====================================================================#
         # An action requires the data to be redrawn
         #=====================================================================#      
@@ -481,27 +483,37 @@ class Window():
         self.ax['Data'].set_xlabel('time (frames)')
         self.ax['Data'].set_ylabel('Raw Fluorescence')
         self.vLine = []
-        # from data set 1
-        time = self.data[0]
-        bg1 = self.data[1]
-        fl1 = self.data[2]
-        ratio = fl1/bg1 -1
-        # ----------plot fluorescence--------------#
-        plt.plot(self.oldData[0],self.oldData[2],c=UCred[2],lw=1,ls='dotted')
-        plt.plot(time,fl1,c=UCred[2],lw=2)
-        # ----------plot background--------------#
-        plt.plot(self.oldData[0],self.oldData[1],c=UCorange[0],lw=1,ls='dotted')
-        plt.plot(time,bg1,c=UCorange[0],lw=2)
-        # from data set 2
-        bg2 = self.data[6]
-        fl2 = self.data[7]
-        ratio2 = fl2/bg2 -1
-        # ----------plot fluorescence--------------#
-        plt.plot(self.oldData[0],self.oldData[7],c=UCgreen[0],lw=1,ls='dotted')
-        plt.plot(time,fl2,c=UCgreen[0],lw=2)
-        # ----------plot background--------------#
-        plt.plot(self.oldData[0],self.oldData[6],c=UCgreen[2],lw=1,ls='dotted')
-        plt.plot(time,bg2,c=UCgreen[2],lw=2)
+        #Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2 BG3 F3 X3 Y3 A3 BG4 F4 X4 Y4 A4        
+        
+        time, redBg1, redFl1, _,_,_, greenBg1, greenFl1, _,_,_,  redBg2, redFl2, _,_,_, greenBg2, greenFl2,_,_,_ = self.data
+        if self.mode.get()=='Dual Color':
+            plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'Red F')
+            plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Red Bg')
+            plt.plot(time,greenFl1,c=UCgreen[0],lw=2, label = 'Green F')
+            plt.plot(time,greenBg1,c=UCgreen[2],lw=2, linestyle = '--',label = 'Green Bg')
+            ratio = redFl1/redBg1 - 1
+            ratio2 = greenFl1/greenBg1 - 1
+            ratio3 = (greenFl1 - greenBg1)/(redFl1 - redBg1)
+            
+        elif self.mode.get()=='Vulva neurons':
+            plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'Red F')
+            plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Red Bg')
+            plt.plot(time,greenFl1,c=UCgreen[0],lw=2, label = 'Green F')
+            plt.plot(time,greenBg1,c=UCgreen[2],lw=2, linestyle = '--',label = 'Green Bg')
+            offset = 2*np.max(redFl1)
+            plt.plot(time,redFl2+offset,c=UCred[2],lw=2, label = 'Red F 2')
+            plt.plot(time,redBg2+offset,c=UCorange[0],lw=2, linestyle = '--',label = 'Red Bg2')
+            plt.plot(time,greenFl2+offset,c=UCgreen[0],lw=2, label = 'Green F 2')
+            plt.plot(time,greenBg2+offset,c=UCgreen[2],lw=2, linestyle = '--',label = 'Green Bg 2')
+           
+            ratio3 = (greenFl1 - greenBg1)/(redFl1 - redBg1)
+            ratio4 = (greenFl2 - greenBg2)/(redFl2 - redBg2)
+        else:
+            plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'F')
+            plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg')
+            ratio = redFl1/redBg1 - 1
+            
+        plt.legend(loc = 4, fontsize=10)
         plt.xlim(min(time),max(time))
         
         self.canvas['Data'].draw()
@@ -511,15 +523,28 @@ class Window():
         self.ax['Flow'].cla()
         self.ax['Flow'].set_xlabel('time (frames)')
         self.ax['Flow'].set_ylabel('F/Bg')
-        ratio3 = (fl2-bg2)/(fl1-bg1)
-        plt.plot(time,ratio,c=UCred[0],lw=2, label = 'Channel 1 - Red')
-        plt.plot(time,ratio2,c=UCgreen[0],lw=2, label = 'Channel 2 - Green')
-        plt.plot(time,ratio3,c=UCblue[0],lw=2, label = '(Green-Red)/Red')
-        n = 10
-        plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCred[2],lw=2)
-        plt.plot(time[:-n+1],piaImage.moving_average(ratio2, n),c=UCgreen[2],lw=2)
-        plt.plot(time[:-n+1],piaImage.moving_average(ratio3, n),c=UCblue[2],lw=2)
-        plt.xlim(min(self.data[0]),max(self.data[0]))
+        if self.mode.get()=='Dual Color':
+            plt.plot(time,ratio,c=UCred[0],lw=2, label = 'Channel 1 - Red')
+            plt.plot(time,ratio2,c=UCgreen[0],lw=2, label = 'Channel 2 - Green')
+            plt.plot(time,ratio3,c=UCblue[0],lw=2, label = '(Green-GreenBg)/(Red-RedBg)')
+            n = 10
+            plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCred[2],lw=2)
+            plt.plot(time[:-n+1],piaImage.moving_average(ratio2, n),c=UCgreen[2],lw=2)
+            plt.plot(time[:-n+1],piaImage.moving_average(ratio3, n),c=UCblue[2],lw=2)
+        
+        elif self.mode.get()=='Vulva neurons':
+            
+            plt.plot(time,ratio3+0.5,c=UCblue[0],lw=2, label = '(Green1-GreenBg)/(Red1-RedBg)')
+            plt.plot(time,ratio4,c=UCorange[0],lw=2, label = '(Green2-GreenBg)/(Red2-RedBg)')
+            n = 10
+            plt.plot(time[:-n+1],piaImage.moving_average(ratio3+0.5, n),c=UCblue[2],lw=2)
+            plt.plot(time[:-n+1],piaImage.moving_average(ratio4, n),c=UCorange[2],lw=2)
+        else:
+            plt.plot(time,ratio,c=UCblue[0],lw=2, label = 'Channel 1 - GCamp')
+            n = 10
+            plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCblue[2],lw=2)
+        plt.xlim(min(time),max(time))
+        plt.legend(loc=4, fontsize=10)
         self.canvas['Flow'].draw()
         return
 
@@ -529,8 +554,9 @@ class Window():
     
     def writeNewData(self):
         '''write new data set without overwriting old data.'''
+        headerTxt = '#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2 BG3 F3 X3 Y3 A3 BG4 F4 X4 Y4 A4'
         if self.status[2] and len(self.data)>0:
-            np.savetxt(self.newFile.get(), self.data.T,  delimiter=' ', newline='\n', header='#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2')
+            np.savetxt(self.newFile.get(), self.data.T,  delimiter=' ', newline='\n', header=headerTxt)
         return
         #=====================================================================#
         # If active the user may draw another flow rectangular
@@ -627,7 +653,6 @@ class Window():
         # Update the autotracker results (or create if not run before)
         #=====================================================================#          
     def updateAutoRun(self, index):
-        
         i = self.currentIndex.get()
         if index ==0:
             # read current image
@@ -636,14 +661,12 @@ class Window():
             tmp_xC, tmp_yC = self.ROILocationData
             # use same algorithm as manual to get fluorescence
             self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
-            
         else:
              # read current image
             _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
             # update coordinates
-            tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.1, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.1
+            tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.2, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.25
             self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
-           
         self.drawDataLine()
         self.updateMain()
         self.drawRect()
@@ -663,13 +686,19 @@ class Window():
         bgSize = int(np.round(self.boxBG.get()/2.0))
         neuronSize = int(np.round(self.boxNeuron.get()/2.0))
         threshold = self.signalThreshold.get()
+        print self.data.shape
         if self.mode.get()=='Neuron and Process':
             trackResult = piaImage.processFluorescence(img, bgSize,neuronSize, threshold, xC, yC)
         elif self.mode.get()=='Dual Color':
             trackResult = piaImage.dualFluorescence(img, bgSize,neuronSize, threshold, xC, yC, [self.dualX.get(),self.dualY.get()])
+        elif self.mode.get()=='Vulva neurons':
+            trackResult = piaImage.dualFluorescence2Neurons(img, bgSize,neuronSize, \
+                            threshold, xC, yC, [self.dualX.get(),self.dualY.get()], self.data[[3,4,13,14],index-1])
         else:
             trackResult = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
-         # --- Update neuron info in data  ---
+        #-----pad trackResult to size 20----
+        trackResult = np.pad(trackResult, (0,20-len(trackResult )), 'constant') 
+        # --- Update neuron info in data  ---
         self.oldData[:,index] = self.data[:,index]
         self.data[1::,index] = trackResult
 
@@ -717,6 +746,7 @@ class Window():
                 item.remove()
         self.vLine = []
         self.vLine.append(plt.axvline(self.currentIndex.get(),ls='dashed',c='k'))
+        plt.tight_layout()
         self.canvas['Data'].draw()        
         return
 
@@ -725,7 +755,7 @@ class Window():
         #=====================================================================#
     def drawRect(self):
         plt.figure('Main')
-        if self.mode.get() =='Dual Color':
+        if self.mode.get() =='Dual Color' or self.mode.get() =='Vulva neurons':
             if len(self.rect) > 0:
                 for item in self.rect:
                     item.remove()
@@ -747,7 +777,6 @@ class Window():
             size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
             self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
             self.canvas['Main'].draw()
-        
         return
         
         #=====================================================================#
@@ -759,7 +788,6 @@ class Window():
     def drawMain(self):
              #--------- Load image with current index --------- 
         self.imageData = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[self.currentIndex.get()]))
-       
              #--------- Delete old image and plot new ---------             
         plt.figure('Main')
         self.ax['Main'].cla()
@@ -780,14 +808,13 @@ class Window():
     def updateMain(self):
              #--------- Load image with current index --------- 
         self.imageData = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[self.currentIndex.get()]))
-        
              #--------- Update image data ---------             
         self.mainImage.set_data(self.imageData)
         self.canvas['Main'].draw()
         return
         
-    def onPressFlow(self,event):
-        return        
+#    def onPressFlow(self,event):
+#        return        
 
         #=====================================================================#
         # Video playback controls. Clicking on run requests the execution of
@@ -824,7 +851,7 @@ class Window():
     def newFrame(self):
              #--------- Update line position and main image ---------
         self.drawDataLine()
-        self.drawMain()
+        self.updateMain()
         self.drawRect()
         
         self.currentIndex.set(self.currentIndex.get() + 1 + self.skipFrames.get())

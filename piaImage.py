@@ -155,9 +155,6 @@ def dualFluorescence(Image, bgSize,neuronSize, threshold, xC, yC, shift):
         print 'tracker out of bounds', GreenImage.shape, neuronObject.shape
         return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,
     tmpGreenNeuron = np.ma.masked_array(GreenImage, neuronObject)
-    if GreenImage.shape!= neuronObject:
-        return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,
-    
     GreenNeuronAverage = np.ma.average(tmpGreenNeuron)
     GreenbgLevel = calculateWithMask(GreenImage, xNewNeuron,yNewNeuron,neuronSize,imSize)
     
@@ -207,9 +204,6 @@ def dualFluorescence2Neurons(Image, bgSize,neuronSize, threshold, xC, yC, shift,
         # detect neuron identity via angle
         angle1 = np.arccos(np.clip(np.dot(vec1/np.linalg.norm(vec1), vec2/np.linalg.norm(vec2)),-1,1))
         angle2 = np.arccos(np.clip(np.dot(vec1/np.linalg.norm(vec1), -vec2/np.linalg.norm(vec2)),-1,1))
-        # 
-        print angle1, angle2
-        print prevLocs
         # switch idenity
         if angle2 > angle1:
             tmp = yNewNeuron2,xNewNeuron2
@@ -223,7 +217,7 @@ def dualFluorescence2Neurons(Image, bgSize,neuronSize, threshold, xC, yC, shift,
         # if only one object found, assign same values to both
         loc = np.argmax(meanBrightness)
         yNewNeuron1,xNewNeuron1 = centroids[loc]
-        yNewNeuron2,xNewNeuron2 = prevLocs[:-2]
+        xNewNeuron2,yNewNeuron2 = prevLocs[-2]-xMin, prevLocs[-1]-yMin
         neuronObject1 = np.where(label_im ==loc+1,0,1)
         neuronArea1 = np.sum(neuronObject1)
         neuronObject2 = neuronObject1

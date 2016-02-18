@@ -513,7 +513,7 @@ class Window():
             plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg')
             ratio = redFl1/redBg1 - 1
             
-        plt.legend(loc = 4, fontsize=10)
+        #plt.legend(loc = 4, fontsize=10)
         plt.xlim(min(time),max(time))
         
         self.canvas['Data'].draw()
@@ -544,7 +544,7 @@ class Window():
             n = 10
             plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCblue[2],lw=2)
         plt.xlim(min(time),max(time))
-        plt.legend(loc=4, fontsize=10)
+        #plt.legend(loc=4, fontsize=10)
         self.canvas['Flow'].draw()
         return
 

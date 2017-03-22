@@ -690,7 +690,7 @@ class Window():
             for item in self.ROI:
                 self.ax['Main'].lines.remove(item[0])
                 self.ROI = []
-        self.currentIndex.set(i+self.skipFrames.get())
+        self.currentIndex.set(i+1)
         index += 1
         if self.AutoRunActive and self.currentIndex.get()  < self.numOfImages:
             root.after(2, lambda: self.updateAutoRun(index))

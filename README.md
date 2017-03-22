@@ -26,6 +26,13 @@ Depending on the tracking mode, it returns this for one or two objects in one or
 
 ## Object detection and Tracking
 ### Parameters
+|Parameters     | Description | How to choose a value|
+| ------------- |-------------| -------------|
+| Background box| Determines the search area around a location where an object is expected. | Should be close to the maximally expected displacement in a frame|
+| Neuron box    | This area will be masked for the background calculation and should cover the fluroescent object |Approximately the size of the object and any halo that might appear around it|
+| Signal threshold| In percent pixel of the background box, this determines the threshold that separates object and background.| The percentile value of brightness ie. for 95% all pixels with the 5% highest brightness levels are part of the object|
+| Dual color shift | Dual color(ratiometric) imaging offset | calculate from shift between images, should be constant for a movie and a microscope|
+
 
 
 

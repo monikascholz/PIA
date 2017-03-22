@@ -233,7 +233,7 @@ class Window():
         dualOptionsText.set('Track Mode')
         dualOptionsLabel = tk.Label(optionsFrame,textvariable=dualOptionsText,anchor=tk.E,justify=tk.LEFT,width=textWidth)
         dualOptionsLabel.grid(column=4,row=1, sticky=tk.NSEW)
-        dualOptionsCheckbutton = tk.OptionMenu(optionsFrame, self.mode, 'Single Neuron', 'Dual Color', 'Vulva neurons','Neuron and Process')
+        dualOptionsCheckbutton = tk.OptionMenu(optionsFrame, self.mode, 'Single Neuron', 'Single Neuron (Ratio)', '2 Neurons', '2 Neurons (Ratio)')
         dualOptionsCheckbutton.config(width=textWidth)
         dualOptionsCheckbutton.grid(column=5,row=1,sticky=tk.NSEW)  
 
@@ -351,7 +351,7 @@ class Window():
         #=====================================================================#   
     def selectImageFolder(self):
              #--------- Get directory from the user ---------         
-        tmp_file = tfd.askdirectory(parent=root, initialdir='/home/monika/Desktop/worm_figures_for_talks/vulvalmuscles_sample', title='Select image folder')
+        tmp_file = tfd.askdirectory(parent=root, initialdir='/media/monika/Nak/GCAMp Data/MK00014_160613/MK00014_EF1_160613', title='Select image folder')
         if not os.path.isdir:
             showerror(title = "Image directory error", message = "Not an image directory")
         else:
@@ -486,7 +486,7 @@ class Window():
         #Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2 BG3 F3 X3 Y3 A3 BG4 F4 X4 Y4 A4        
         
         time, redBg1, redFl1, _,_,_, greenBg1, greenFl1, _,_,_,  redBg2, redFl2, _,_,_, greenBg2, greenFl2,_,_,_ = self.data
-        if self.mode.get()=='Dual Color':
+        if self.mode.get()=='Single Neuron (Ratio)':
             plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'Red F')
             plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Red Bg')
             plt.plot(time,greenFl1,c=UCgreen[0],lw=2, label = 'Green F')
@@ -495,7 +495,7 @@ class Window():
             ratio2 = greenFl1/greenBg1 - 1
             ratio3 = (greenFl1 - greenBg1)/(redFl1 - redBg1)
             
-        elif self.mode.get()=='Vulva neurons':
+        elif self.mode.get()=='2 Neurons (Ratio)':
             plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'Red F')
             plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Red Bg')
             plt.plot(time,greenFl1,c=UCgreen[0],lw=2, label = 'Green F')
@@ -508,6 +508,15 @@ class Window():
            
             ratio3 = (greenFl1 - greenBg1)/(redFl1 - redBg1)
             ratio4 = (greenFl2 - greenBg2)/(redFl2 - redBg2)
+            
+        elif self.mode.get() == '2 Neurons':
+            plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'F1')
+            plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg1')
+            plt.plot(time,redFl2,c=UCmain,lw=2, label = 'F2')
+            plt.plot(time,redBg2,c=UCorange[1],lw=2, linestyle = '--',label = 'Bg2')
+            ratio = redFl1/redBg1 - 1
+            ratio2 = redFl2/redBg2 - 1
+            
         else:
             plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'F')
             plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg')
@@ -515,7 +524,8 @@ class Window():
             
         #plt.legend(loc = 4, fontsize=10)
         plt.xlim(min(time),max(time))
-        
+        # smoothin factor for ratio plot
+        n = 10
         self.canvas['Data'].draw()
         self.drawDataLine()
         # draw background subtracted data - (F-Bg)
@@ -523,26 +533,30 @@ class Window():
         self.ax['Flow'].cla()
         self.ax['Flow'].set_xlabel('time (frames)')
         self.ax['Flow'].set_ylabel('F/Bg')
-        if self.mode.get()=='Dual Color':
+        if self.mode.get()=='Single Neuron (Ratio)':
             plt.plot(time,ratio,c=UCred[0],lw=2, label = 'Channel 1 - Red')
             plt.plot(time,ratio2,c=UCgreen[0],lw=2, label = 'Channel 2 - Green')
             plt.plot(time,ratio3,c=UCblue[0],lw=2, label = '(Green-GreenBg)/(Red-RedBg)')
-            n = 10
-            plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCred[2],lw=2)
-            plt.plot(time[:-n+1],piaImage.moving_average(ratio2, n),c=UCgreen[2],lw=2)
-            plt.plot(time[:-n+1],piaImage.moving_average(ratio3, n),c=UCblue[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio, n),c=UCred[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio2, n),c=UCgreen[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio3, n),c=UCblue[2],lw=2)
         
-        elif self.mode.get()=='Vulva neurons':
-            
+        elif self.mode.get()=='2 Neurons (Ratio)':
             plt.plot(time,ratio3+0.5,c=UCblue[0],lw=2, label = '(Green1-GreenBg)/(Red1-RedBg)')
             plt.plot(time,ratio4,c=UCorange[0],lw=2, label = '(Green2-GreenBg)/(Red2-RedBg)')
-            n = 10
-            plt.plot(time[:-n+1],piaImage.moving_average(ratio3+0.5, n),c=UCblue[2],lw=2)
-            plt.plot(time[:-n+1],piaImage.moving_average(ratio4, n),c=UCorange[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio3+0.5, n),c=UCblue[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio4, n),c=UCorange[2],lw=2)
+            
+        elif self.mode.get() == '2 Neurons':
+            plt.plot(time,ratio+0.5,c=UCblue[0],lw=2, label = 'Neuron 1 - Green')
+            plt.plot(time,ratio2,c=UCorange[0],lw=2, label = 'Neuron 2 - Green')
+            plt.plot(time,piaImage.moving_average(ratio+0.5, n),c=UCblue[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio2, n),c=UCorange[2],lw=2)
+            
         else:
             plt.plot(time,ratio,c=UCblue[0],lw=2, label = 'Channel 1 - GCamp')
-            n = 10
-            plt.plot(time[:-n+1],piaImage.moving_average(ratio, n),c=UCblue[2],lw=2)
+            plt.plot(time,piaImage.moving_average(ratio, n),c=UCblue[2],lw=2)
+            
         plt.xlim(min(time),max(time))
         #plt.legend(loc=4, fontsize=10)
         self.canvas['Flow'].draw()
@@ -596,7 +610,7 @@ class Window():
             self.getFluoresence()
             self.drawData()
 
-        if self.nextImgOnClick.get() == 1 and not self.newAutoRun:
+        if self.nextImgOnClick.get() == 1 and not self.newAutoRun and self.currentIndex.get() + 1 + self.skipFrames.get()<self.numOfImages:
             self.currentIndex.set(self.currentIndex.get() + 1 + self.skipFrames.get())
                  #--------- Increment current index  --------- 
             if self.currentIndex.get() >= self.numOfImages-1:
@@ -621,7 +635,7 @@ class Window():
             if self.AutoRunActive:
                 index = 0
                 self.updateAutoRun(index)
-                if index >= self.numOfImages-1:
+                if index > self.numOfImages-1:
                     self.AutoRunActive = False
             self.newAutoRun = False
         return
@@ -665,7 +679,8 @@ class Window():
              # read current image
             _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
             # update coordinates
-            tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*0.2, self.data[4][i-1]++(self.data[4][i-1]-self.data[4][i-2])*0.25
+            trackspeed = 0.2
+            tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*trackspeed, self.data[4][i-1]+(self.data[4][i-1]-self.data[4][i-2])*trackspeed
             self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
         self.drawDataLine()
         self.updateMain()
@@ -675,9 +690,9 @@ class Window():
             for item in self.ROI:
                 self.ax['Main'].lines.remove(item[0])
                 self.ROI = []
-        self.currentIndex.set(i+1)
+        self.currentIndex.set(i+self.skipFrames.get())
         index += 1
-        if self.AutoRunActive and index <= self.numOfImages-1:
+        if self.AutoRunActive and self.currentIndex.get()  < self.numOfImages:
             root.after(2, lambda: self.updateAutoRun(index))
         return
         
@@ -686,12 +701,14 @@ class Window():
         bgSize = int(np.round(self.boxBG.get()/2.0))
         neuronSize = int(np.round(self.boxNeuron.get()/2.0))
         threshold = self.signalThreshold.get()
-        print self.data.shape
+        
         if self.mode.get()=='Neuron and Process':
             trackResult = piaImage.processFluorescence(img, bgSize,neuronSize, threshold, xC, yC)
-        elif self.mode.get()=='Dual Color':
+        elif self.mode.get()=='Single Neuron (Ratio)':
             trackResult = piaImage.dualFluorescence(img, bgSize,neuronSize, threshold, xC, yC, [self.dualX.get(),self.dualY.get()])
-        elif self.mode.get()=='Vulva neurons':
+        elif self.mode.get()=='2 Neurons':
+            trackResult = piaImage.singleFluorescence2Neurons(img, bgSize,neuronSize, threshold, xC, yC, [self.dualX.get(),self.dualY.get()], self.data[[3,4,13,14],index-1])
+        elif self.mode.get()=='2 Neurons (Ratio)':
             trackResult = piaImage.dualFluorescence2Neurons(img, bgSize,neuronSize, \
                             threshold, xC, yC, [self.dualX.get(),self.dualY.get()], self.data[[3,4,13,14],index-1])
         else:
@@ -755,7 +772,7 @@ class Window():
         #=====================================================================#
     def drawRect(self):
         plt.figure('Main')
-        if self.mode.get() =='Dual Color' or self.mode.get() =='Vulva neurons':
+        if self.mode.get() =='Single Neuron (Ratio)' or self.mode.get() =='2 Neurons (Ratio)':
             if len(self.rect) > 0:
                 for item in self.rect:
                     item.remove()

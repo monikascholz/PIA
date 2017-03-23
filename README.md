@@ -1,5 +1,7 @@
 # PIA
 - physiological imaging analyzer -
+![PIA logo](PIA.png)
+
 A graphical interface for tracking and correcting physiological calcium imaging (GCamp).
 Integrates automatic and manual inputs to optimize the resulting calcium traces.
 
@@ -16,15 +18,23 @@ PIA has 4 options for detecting fluorescence changes:
 
 PIA can also play a series of images at as a movie and load previous PIA data files and allow the user to manually correct/overwrite them.
 
-## Image input
+## Object detection and Tracking
 
+### Image input
 PIA uses matplotlib.image's imread function. Natively, this only supports png images, however, with the help of Pillow, it can also read tif and jpg images. The input images are expected to have a 4-digit timestamp at the end of the filename, eg. img_0001.jpg. 
 
-## File output
-The output file specifies four parameters for each object: Fluorescence, associated background, location in the image and area.
-Depending on the tracking mode, it returns this for one or two objects in one or two colors.
+### File output
+The output file specifies four parameters for each object: Fluorescence, associated background, location in the image and area. Depending on the tracking mode, it returns this for one or two objects in one or two colors.
+A typical output file looks like this:
+```text
+# #Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2 BG3 F3 X3 Y3 A3 BG4 F4 X4 Y4 A4
+0.000000 1110.811120 2196.681319 182.792300 263.916887 39892.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000
+```
+Here, BG1, F1 etc. are the first objects Background, Fluorescene, X and Y location and Area, respectively. The next 5 values are for the green channel (if it exists)
 
-## Object detection and Tracking
+Note: In the GUI, the values are displayed with smoothed overlays and sometimes artificially offset to create a better live visualization. The data are the raw brightness values as obtained from the analysis, and no offset, smoothing or subtraction has been performed. 
+
+
 ### Parameters
 |Parameters     | Description | How to choose a value|
 | ------------- |-------------| -------------|

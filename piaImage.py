@@ -138,7 +138,7 @@ def fluorescence(Image, bgSize,neuronSize, threshold, xC, yC):
     yNewNeuron,xNewNeuron, newNeuronAverage, neuronArea,_ = findNeuron(bgImage, threshold, xNeuron,  yNeuron)
     bgLevel = calculateWithMask(bgImage, xNewNeuron,yNewNeuron,neuronSize,imSize)
    
-    return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1, 1, 1, 1 ,1
+    return 1, 1, 1, 1 ,1,bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea,1, 1, 1, 1 ,1,1, 1, 1, 1 ,1,
 
 
     
@@ -166,16 +166,16 @@ def dualFluorescence(Image, bgSize,neuronSize, threshold, xC, yC, shift):
     neuronObject = cropOutOfBoundsRegions(xC, yC, bgSize, neuronObject, width, height, imSize, shift)
     
     if neuronObject.shape[0]<1 or neuronObject.shape[1]<1:
-        return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,
+        return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,1,1,1,1,1,1,1,1,1,1
         
     if GreenImage.shape!= neuronObject.shape:
         print 'tracker out of bounds', GreenImage.shape, neuronObject.shape
-        return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,
+        return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, 1 , 1, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,1,1,1,1,1,1,1,1,1,1
     tmpGreenNeuron = np.ma.masked_array(GreenImage, neuronObject)
     GreenNeuronAverage = np.ma.average(tmpGreenNeuron)
     GreenbgLevel = calculateWithMask(GreenImage, xNewNeuron,yNewNeuron,neuronSize,imSize)
     
-    return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, GreenbgLevel , GreenNeuronAverage, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,
+    return bgLevel, newNeuronAverage, xNewNeuron+xMin, yNewNeuron+yMin, neuronArea, GreenbgLevel , GreenNeuronAverage, xNewNeuron+xMin+shift[0], yNewNeuron+yMin+shift[1] ,neuronArea,1,1,1,1,1,1,1,1,1,1
 
 def dualFluorescence2Neurons(Image, bgSize,neuronSize, threshold, xC, yC, shift, prevLocs):
     """Calculate fluorescene for the two brightest objects in two ratiometric images."""
@@ -377,10 +377,11 @@ def singleFluorescence2Neurons(Image, bgSize,neuronSize, threshold, xC, yC, shif
     
     
     # for each of the 2 neuron there are green components
-    return bgLevel, newNeuronAverage1, xNewNeuron1+xMin, yNewNeuron1+yMin, neuronArea1, \
+    return 1,1,1,1,1,\
+    bgLevel, newNeuronAverage1, xNewNeuron1+xMin, yNewNeuron1+yMin, neuronArea1, \
     1,1,1,1,1,\
     bgLevel, newNeuronAverage2, xNewNeuron2+xMin, yNewNeuron2+yMin, neuronArea2, \
-    1,1,1,1,1,\
+    
     
     
 def moving_average(a, n=3) :

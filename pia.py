@@ -437,7 +437,7 @@ class Window():
         # Write new data file. The old one is being overwritten
         #=====================================================================#  
     def writeControl(self):
-        np.savetxt(self.dataFile.get(), self.data.T,  delimiter=' ', newline='\n', header='#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2')
+        np.savetxt(self.dataFile.get(), np.around(self.data.T, 2),  delimiter=' ', newline='\n', header='#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2')
         return
         #=====================================================================#
         # Reset all changes made to the data or reset to zeros
@@ -510,17 +510,17 @@ class Window():
             ratio4 = (greenFl2 - greenBg2)/(redFl2 - redBg2)
             
         elif self.mode.get() == '2 Neurons':
-            plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'F1')
-            plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg1')
-            plt.plot(time,redFl2,c=UCmain,lw=2, label = 'F2')
-            plt.plot(time,redBg2,c=UCorange[1],lw=2, linestyle = '--',label = 'Bg2')
-            ratio = redFl1/redBg1 - 1
-            ratio2 = redFl2/redBg2 - 1
+            plt.plot(time,greenFl1,c=UCred[2],lw=2, label = 'F1')
+            plt.plot(time,greenBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg1')
+            plt.plot(time, greenFl2,c=UCmain,lw=2, label = 'F2')
+            plt.plot(time,greenBg2,c=UCorange[1],lw=2, linestyle = '--',label = 'Bg2')
+            ratio = greenFl1/greenBg1 - 1
+            ratio2 = greenFl2/greenBg2 - 1
             
         else:
-            plt.plot(time,redFl1,c=UCred[2],lw=2, label = 'F')
-            plt.plot(time,redBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg')
-            ratio = redFl1/redBg1 - 1
+            plt.plot(time,greenFl1,c=UCred[2],lw=2, label = 'F')
+            plt.plot(time,greenBg1,c=UCorange[0],lw=2, linestyle = '--',label = 'Bg')
+            ratio = greenFl1/greenBg1 - 1
             
         #plt.legend(loc = 4, fontsize=10)
         plt.xlim(min(time),max(time))
@@ -570,7 +570,7 @@ class Window():
         '''write new data set without overwriting old data.'''
         headerTxt = '#Frame BG1 F1 X1 Y1 A1 BG2 F2 X2 Y2 A2 BG3 F3 X3 Y3 A3 BG4 F4 X4 Y4 A4'
         if self.status[2] and len(self.data)>0:
-            np.savetxt(self.newFile.get(), self.data.T,  delimiter=' ', newline='\n', header=headerTxt)
+            np.savetxt(self.newFile.get(), self.data.T,fmt ='%f',  delimiter=' ', newline='\n', header=headerTxt)
         return
         #=====================================================================#
         # If active the user may draw another flow rectangular
@@ -592,7 +592,7 @@ class Window():
         #=====================================================================#
         # The user has clicked on the main image frame
         # If he previously specified that he wants to define a new flow
-        # region he can drag a rectangle acros the desired region
+        # region he can drag a rectangle across the desired region
         #=====================================================================#      
     def onPressMain(self,event):
         if self.AutoRunActive:
@@ -604,8 +604,13 @@ class Window():
             self.ROILocationData = [event.xdata,event.ydata]
             
         else:
-            self.data[3][self.currentIndex.get()] = event.xdata
-            self.data[4][self.currentIndex.get()] = event.ydata
+            # if tracking in red channel:
+            if self.mode.get()=='Single Neuron (Ratio)' or self.mode.get()=='2 Neurons (Ratio)':
+                self.data[3][self.currentIndex.get()] = event.xdata
+                self.data[4][self.currentIndex.get()] = event.ydata
+            else: # tracking purely green
+                self.data[8][self.currentIndex.get()] = event.xdata
+                self.data[9][self.currentIndex.get()] = event.ydata
             self.drawRect()
             self.getFluoresence()
             self.drawData()
@@ -646,8 +651,12 @@ class Window():
     def getFluoresence(self):
             # ---- Get analysis box size and central position ----
         index = self.currentIndex.get()
-        xC = int(np.round(self.data[3][self.currentIndex.get()]))
-        yC = int(np.round(self.data[4][self.currentIndex.get()]))
+        if self.mode.get()=='Single Neuron (Ratio)' or self.mode.get()=='2 Neurons (Ratio)':
+            xC = int(np.round(self.data[3][self.currentIndex.get()]))
+            yC = int(np.round(self.data[4][self.currentIndex.get()]))
+        else:
+            xC = int(np.round(self.data[8][self.currentIndex.get()]))
+            yC = int(np.round(self.data[9][self.currentIndex.get()]))
         _tmpImg = self.imageData
         self.AutoFluorescenceDetector(_tmpImg, xC, yC, index)
         return   
@@ -680,7 +689,11 @@ class Window():
             _tmpImage = mpimg.imread(os.path.join(self.imageFolder.get(),self.imageNames[i]))
             # update coordinates
             trackspeed = 0.2
-            tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*trackspeed, self.data[4][i-1]+(self.data[4][i-1]-self.data[4][i-2])*trackspeed
+            if self.mode.get()=='Single Neuron (Ratio)' or self.mode.get()=='2 Neurons (Ratio)':
+                tmp_xC, tmp_yC  = self.data[3][i-1]+(self.data[3][i-1]-self.data[3][i-2])*trackspeed, self.data[4][i-1]+(self.data[4][i-1]-self.data[4][i-2])*trackspeed
+            else:
+                tmp_xC, tmp_yC  = self.data[8][i-1]+(self.data[8][i-1]-self.data[8][i-2])*trackspeed, self.data[9][i-1]+(self.data[9][i-1]-self.data[9][i-2])*trackspeed
+            
             self.AutoFluorescenceDetector(_tmpImage, tmp_xC, tmp_yC, i)
         self.drawDataLine()
         self.updateMain()
@@ -702,9 +715,7 @@ class Window():
         neuronSize = int(np.round(self.boxNeuron.get()/2.0))
         threshold = self.signalThreshold.get()
         
-        if self.mode.get()=='Neuron and Process':
-            trackResult = piaImage.processFluorescence(img, bgSize,neuronSize, threshold, xC, yC)
-        elif self.mode.get()=='Single Neuron (Ratio)':
+        if self.mode.get()=='Single Neuron (Ratio)':
             trackResult = piaImage.dualFluorescence(img, bgSize,neuronSize, threshold, xC, yC, [self.dualX.get(),self.dualY.get()])
         elif self.mode.get()=='2 Neurons':
             trackResult = piaImage.singleFluorescence2Neurons(img, bgSize,neuronSize, threshold, xC, yC, [self.dualX.get(),self.dualY.get()], self.data[[3,4,13,14],index-1])
@@ -714,7 +725,7 @@ class Window():
         else:
             trackResult = piaImage.fluorescence(img, bgSize,neuronSize, threshold, xC, yC)
         #-----pad trackResult to size 20----
-        trackResult = np.pad(trackResult, (0,20-len(trackResult )), 'constant') 
+        #trackResult = np.pad(trackResult, (0,20-len(trackResult )), 'constant') 
         # --- Update neuron info in data  ---
         self.oldData[:,index] = self.data[:,index]
         self.data[1::,index] = trackResult
@@ -789,10 +800,11 @@ class Window():
                 for item in self.rect:
                     item.remove()
             self.rect = []
+            print np.round(self.data[8][self.currentIndex.get()]), np.round(self.data[9][self.currentIndex.get()])
             size = self.boxBG.get()/2.0
-            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[8][self.currentIndex.get()]) - size, np.round(self.data[9][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCblue[2],facecolor='none',alpha=1,lw=2)))
             size = self.boxNeuron.get()/2.0#self.boxBG.get()/2.0
-            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[3][self.currentIndex.get()]) - size, np.round(self.data[4][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
+            self.rect.append(self.ax['Main'].add_patch(Rectangle((np.round(self.data[8][self.currentIndex.get()]) - size, np.round(self.data[9][self.currentIndex.get()]) - size), 2*size, 2*size, edgecolor=UCorange[2],facecolor='none',alpha=1,lw=2)))
             self.canvas['Main'].draw()
         return
         

@@ -1,6 +1,9 @@
-# PIA
-- physiological imaging analyzer -
+
+
+# PIA - physiological imaging analyzer
+<p align="center">
 <img src="PIA.png" width="100">
+</p>
 
 A graphical interface for tracking and correcting physiological calcium imaging (GCamp).
 Integrates automatic and manual inputs to optimize the resulting calcium traces.
